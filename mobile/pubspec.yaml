@@ -10,57 +10,24 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # ── State Management ────────────────────────────────────
   flutter_bloc: ^8.1.6
   bloc: ^8.1.4
   equatable: ^2.0.5
 
-  # ── Navigation ──────────────────────────────────────────
   go_router: ^14.2.7
 
-  # ── Network ─────────────────────────────────────────────
   dio: ^5.7.0
-  pretty_dio_logger: ^1.4.0
-  connectivity_plus: ^6.0.3
 
-  # ── Local Storage & Security ─────────────────────────────
-  hive: ^2.2.3
-  hive_flutter: ^1.1.0
   flutter_secure_storage: ^9.2.2
 
-  # ── Maps (OpenStreetMap — free, no API key) ──────────────
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
 
-  # ── UI ──────────────────────────────────────────────────
   google_fonts: ^6.2.1
-  flutter_svg: ^2.0.10+1
-  cached_network_image: ^3.4.1
-  shimmer: ^3.0.0
-  lottie: ^3.1.2
-  badges: ^3.1.2
-  dotted_border: ^2.1.0
 
-  # ── Forms & Input ───────────────────────────────────────
   pin_code_fields: ^8.0.1
   intl: ^0.19.0
-  intl_phone_field: ^3.2.0
-
-  # ── Permissions ─────────────────────────────────────────
-  permission_handler: ^11.3.1
-  geolocator: ^13.0.1
-
-  # ── Utilities ───────────────────────────────────────────
-  url_launcher: ^6.3.0
   image_picker: ^1.1.2
-  path_provider: ^2.1.4
-  uuid: ^4.5.1
-  jwt_decoder: ^2.0.1
-  timeago: ^3.7.0
-  collection: ^1.18.0
-
-  # ── Notifications ───────────────────────────────────────
-  flutter_local_notifications: ^17.2.3
 
   cupertino_icons: ^1.0.8
 
@@ -71,15 +38,3 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-
-  assets:
-    - assets/images/
-    - assets/icons/
-    - assets/fonts/
-
-  fonts:
-    - family: NotoSansDevanagari
-      fonts:
-        - asset: assets/fonts/NotoSansDevanagari-Regular.ttf
-        - asset: assets/fonts/NotoSansDevanagari-Bold.ttf
-          weight: 700

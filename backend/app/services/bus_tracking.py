@@ -41,7 +41,7 @@ async def update_bus_location(
     if not bus:
         return False
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     # Update DB
     bus.current_latitude = latitude

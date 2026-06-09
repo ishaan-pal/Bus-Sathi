@@ -1,7 +1,8 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
-from pydantic import AnyHttpUrl, field_validator
 from typing import List, Optional
 import secrets
+import warnings
 
 
 class Settings(BaseSettings):
@@ -9,7 +10,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "Haryana Roadways API"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
-    SECRET_KEY: str = secrets.token_urlsafe(32)
+    SECRET_KEY: Optional[str] = None
     API_V1_STR: str = "/api/v1"
 
     # ── JWT ──────────────────────────────────────────────
@@ -18,41 +19,53 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
 
     # ── Database ─────────────────────────────────────────
-    DATABASE_URL: str = "postgresql://haryana:haryana123@localhost:5432/haryana_roadways"
+    # Set DATABASE_URL directly, or provide POSTGRES_* (used by docker-compose too)
+    DATABASE_URL: Optional[str] = None
+    POSTGRES_USER: Optional[str] = None
+    POSTGRES_PASSWORD: Optional[str] = None
+    POSTGRES_HOST: str = "localhost"
+    POSTGRES_PORT: int = 5432
+    POSTGRES_DB: Optional[str] = None
     DB_POOL_SIZE: int = 10
     DB_MAX_OVERFLOW: int = 20
 
     # ── Redis ────────────────────────────────────────────
-    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_URL: Optional[str] = None
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+    REDIS_PASSWORD: Optional[str] = None
     OTP_EXPIRE_SECONDS: int = 300                     # 5 minutes
     TICKET_CACHE_SECONDS: int = 3600                  # 1 hour
 
     # ── OTP ──────────────────────────────────────────────
     OTP_LENGTH: int = 6
     OTP_MAX_ATTEMPTS: int = 3
-    OTP_DEV_MODE: bool = True                         # skips real SMS in dev
-    OTP_DEV_FIXED: str = "123456"                     # fixed OTP in dev mode
+    OTP_DEV_MODE: bool = False
+    OTP_DEV_FIXED: Optional[str] = None
 
     # ── SMS (Fast2SMS — free tier) ────────────────────────
     SMS_API_KEY: Optional[str] = None
     SMS_SENDER_ID: str = "HRRDWY"
 
-    # ── Aadhaar (stub for now) ────────────────────────────
+    # ── Aadhaar (stub until govt API credentials obtained) ─
     AADHAAR_ENABLED: bool = False
     AADHAAR_API_URL: Optional[str] = None
     AADHAAR_API_KEY: Optional[str] = None
 
-    # ── Razorpay (sandbox) ───────────────────────────────
+    # ── Razorpay ─────────────────────────────────────────
     RAZORPAY_KEY_ID: Optional[str] = None
     RAZORPAY_KEY_SECRET: Optional[str] = None
     RAZORPAY_CURRENCY: str = "INR"
 
-    # ── CORS ─────────────────────────────────────────────
-    ALLOWED_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ]
+    # ── Bus GPS / ETM device feed ────────────────────────
+    BUS_TRACKING_API_KEY: Optional[str] = None
+
+    # ── DB seeding (dev only — leave unset in production) ─
+    SEED_ADMIN_MOBILE: Optional[str] = None
+
+    # ── CORS (comma-separated in .env) ─────────────────
+    ALLOWED_ORIGINS: str = ""
 
     # ── File Upload ──────────────────────────────────────
     MAX_UPLOAD_SIZE_MB: int = 5
@@ -81,12 +94,76 @@ class Settings(BaseSettings):
         "extra": "ignore",
     }
 
-    @field_validator("ALLOWED_ORIGINS", mode="before")
-    @classmethod
-    def parse_origins(cls, v):
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",")]
-        return v
+    @property
+    def cors_origins(self) -> List[str]:
+        if not self.ALLOWED_ORIGINS.strip():
+            return []
+        return [
+            origin.strip()
+            for origin in self.ALLOWED_ORIGINS.split(",")
+            if origin.strip()
+        ]
+
+    @model_validator(mode="after")
+    def assemble_connection_urls(self) -> "Settings":
+        if not self.DATABASE_URL:
+            if self.POSTGRES_USER and self.POSTGRES_PASSWORD and self.POSTGRES_DB:
+                object.__setattr__(
+                    self,
+                    "DATABASE_URL",
+                    (
+                        f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+                        f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+                    ),
+                )
+            else:
+                raise ValueError(
+                    "DATABASE_URL or POSTGRES_USER, POSTGRES_PASSWORD, and "
+                    "POSTGRES_DB must be set. Copy .env.example to .env."
+                )
+
+        if not self.REDIS_URL:
+            if self.REDIS_PASSWORD:
+                url = (
+                    f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:"
+                    f"{self.REDIS_PORT}/{self.REDIS_DB}"
+                )
+            else:
+                url = f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+            object.__setattr__(self, "REDIS_URL", url)
+
+        return self
+
+    @model_validator(mode="after")
+    def validate_secrets(self) -> "Settings":
+        if not self.SECRET_KEY:
+            if self.DEBUG:
+                object.__setattr__(self, "SECRET_KEY", secrets.token_urlsafe(32))
+                warnings.warn(
+                    "SECRET_KEY not set — using an ephemeral key. "
+                    "Set SECRET_KEY in .env for stable sessions.",
+                    stacklevel=2,
+                )
+            else:
+                raise ValueError("SECRET_KEY must be set when DEBUG=False")
+
+        if self.OTP_DEV_MODE and not self.OTP_DEV_FIXED:
+            raise ValueError("OTP_DEV_FIXED must be set when OTP_DEV_MODE=True")
+
+        if not self.DEBUG:
+            if self.OTP_DEV_MODE:
+                raise ValueError("OTP_DEV_MODE must be False in production (DEBUG=False)")
+            if not self.BUS_TRACKING_API_KEY:
+                raise ValueError(
+                    "BUS_TRACKING_API_KEY must be set when DEBUG=False"
+                )
+
+        return self
+
+    @property
+    def payment_demo_mode(self) -> bool:
+        """True when Razorpay credentials are not configured."""
+        return not (self.RAZORPAY_KEY_ID and self.RAZORPAY_KEY_SECRET)
 
 
 settings = Settings()

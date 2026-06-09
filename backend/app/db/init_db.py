@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.db.base import Base
 from app.db.session import engine, AsyncSessionLocal
 from app.models.user import User
@@ -21,9 +22,13 @@ async def create_tables() -> None:
 
 # ── Seed admin user ───────────────────────────────────────────────────────────
 async def seed_admin(db: AsyncSession) -> None:
+    if not settings.SEED_ADMIN_MOBILE:
+        print("⏭️  SEED_ADMIN_MOBILE not set, skipping admin seed")
+        return
+
     from sqlalchemy import select
     result = await db.execute(
-        select(User).where(User.mobile == "9999999999")
+        select(User).where(User.mobile == settings.SEED_ADMIN_MOBILE)
     )
     if result.scalar_one_or_none():
         print("⏭️  Admin already exists, skipping")
@@ -31,7 +36,7 @@ async def seed_admin(db: AsyncSession) -> None:
 
     admin = User(
         id=str(uuid.uuid4()),
-        mobile="9999999999",
+        mobile=settings.SEED_ADMIN_MOBILE,
         name="Admin User",
         date_of_birth="1985-01-01",
         aadhaar_verified=True,
@@ -42,7 +47,7 @@ async def seed_admin(db: AsyncSession) -> None:
     )
     db.add(admin)
     await db.commit()
-    print("✅ Admin user seeded  →  mobile: 9999999999  OTP: 123456")
+    print(f"✅ Admin user seeded  →  mobile: {settings.SEED_ADMIN_MOBILE}")
 
 
 # ── Seed Haryana routes ───────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 from typing import AsyncGenerator, Optional
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as aioredis
@@ -104,6 +104,29 @@ async def get_current_admin(
             detail="Admin access required",
         )
     return current_user
+
+
+# ── Bus GPS device API key ────────────────────────────────────────────────────
+async def verify_bus_tracking_api_key(
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+) -> None:
+    """
+    Require X-API-Key header when BUS_TRACKING_API_KEY is configured.
+    Skipped in DEBUG mode when no key is configured (local development).
+    """
+    expected = settings.BUS_TRACKING_API_KEY
+    if not expected:
+        if settings.DEBUG:
+            return
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Bus tracking API key not configured",
+        )
+    if x_api_key != expected:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing API key",
+        )
 
 
 # ── Optional Auth (for guest access) ─────────────────────────────────────────

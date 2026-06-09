@@ -42,7 +42,7 @@ class InitiateBookingRequest(BaseModel):
 class ConfirmPaymentRequest(BaseModel):
     ticket_id: str
     payment_id: str
-    razorpay_signature: str = "demo_signature"
+    razorpay_signature: str
 
 
 # ── Fare Breakdown Schemas ────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ class BookingInitiatedResponse(BaseModel):
     ticket_number: str
     fare: FareBreakdownResponse
     payment_order: Optional[dict]
-    razorpay_key_id: str
+    razorpay_key_id: Optional[str] = None
 
 
 # ── Active Ticket Schemas ─────────────────────────────────────────────────────

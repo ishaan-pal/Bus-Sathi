@@ -2,7 +2,6 @@ import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -40,11 +39,8 @@ async def lifespan(app: FastAPI):
     print("🛑 Shutting down Haryana Roadways API...")
 
 
-# ── App Instance ──────────────────────────────────────────────────────────────
-app = FastAPI(
-    title=settings.APP_NAME,
-    version=settings.APP_VERSION,
-    description="""
+def _build_api_description() -> str:
+    description = """
 ## Haryana Roadways Passenger App — Backend API
 
 A modern government-grade passenger platform for Haryana Roadways.
@@ -59,11 +55,22 @@ A modern government-grade passenger platform for Haryana Roadways.
 ### Auth
 All protected endpoints require `Authorization: Bearer <token>` header.
 Use `/api/v1/auth/send-otp` → `/api/v1/auth/verify-otp` to get tokens.
+"""
+    if settings.OTP_DEV_MODE:
+        description += f"""
+### Development Mode
+- OTP dev mode is enabled (fixed OTP: `{settings.OTP_DEV_FIXED}`)
+"""
+        if settings.SEED_ADMIN_MOBILE:
+            description += f"- Seed admin mobile: `{settings.SEED_ADMIN_MOBILE}`\n"
+    return description
 
-### Demo Credentials
-- **Any mobile number** + OTP `123456` (dev mode)
-- **Admin**: mobile `9999999999` + OTP `123456`
-    """,
+
+# ── App Instance ──────────────────────────────────────────────────────────────
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    description=_build_api_description(),
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
@@ -74,7 +81,7 @@ Use `/api/v1/auth/send-otp` → `/api/v1/auth/verify-otp` to get tokens.
 # ── CORS ──────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -98,8 +105,11 @@ async def add_security_headers(request: Request, call_next):
 async def rate_limit_middleware(request: Request, call_next):
     """
     Simple Redis-based rate limiting.
-    Skipped if Redis is unavailable (dev fallback).
+    Skipped in DEBUG mode and when Redis is unavailable.
     """
+    if settings.DEBUG:
+        return await call_next(request)
+
     try:
         from app.core.dependencies import get_redis
         redis = await get_redis()

@@ -33,7 +33,7 @@ def generate_verification_token() -> Tuple[str, datetime]:
     Token rotates every 60 seconds — makes screenshots invalid.
     """
     token = secrets.token_urlsafe(32)
-    expires = datetime.now(timezone.utc) + timedelta(seconds=60)
+    expires = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(seconds=60)
     return token, expires
 
 
@@ -47,7 +47,7 @@ async def create_payment_order(
     Uses sandbox credentials for demo.
     Returns (success, message, order_data)
     """
-    if not settings.RAZORPAY_KEY_ID or not settings.RAZORPAY_KEY_SECRET:
+    if settings.payment_demo_mode:
         # Demo mode — return mock order
         mock_order = {
             "id": f"order_demo_{secrets.token_hex(8)}",
@@ -98,8 +98,7 @@ def verify_razorpay_signature(
     """
     Verify Razorpay payment signature using HMAC-SHA256.
     """
-    if not settings.RAZORPAY_KEY_SECRET:
-        # Demo mode — always passes
+    if settings.payment_demo_mode:
         return True
 
     import hmac
@@ -260,7 +259,7 @@ async def confirm_payment(
         return False, "Payment verification failed", None
 
     # Activate ticket
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     token, token_expires = generate_verification_token()
 
     ticket.status = TicketStatus.ACTIVE
@@ -274,7 +273,7 @@ async def confirm_payment(
     ist_midnight = (now + ist_offset).replace(
         hour=23, minute=59, second=59, microsecond=0
     ) - ist_offset
-    ticket.expires_at = ist_midnight
+    ticket.expires_at = ist_midnight.replace(tzinfo=None)
 
     await db.commit()
     await db.refresh(ticket)
@@ -324,7 +323,7 @@ async def expire_stale_tickets(db: AsyncSession) -> int:
     Called periodically to move expired tickets to EXPIRED state.
     Returns count of tickets expired.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     result = await db.execute(
         select(Ticket).where(
             and_(

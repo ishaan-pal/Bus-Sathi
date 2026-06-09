@@ -9,6 +9,7 @@ from app.core.dependencies import (
     get_redis,
     get_optional_user,
     get_current_admin,
+    verify_bus_tracking_api_key,
 )
 from app.models.bus import Bus, BusStatus
 from app.models.route import Route, RouteStop
@@ -304,11 +305,12 @@ async def update_location(
     body: UpdateLocationRequest,
     db: AsyncSession = Depends(get_db),
     redis: aioredis.Redis = Depends(get_redis),
+    _: None = Depends(verify_bus_tracking_api_key),
 ):
     """
     Called by the bus GPS device or ETM machine feed to push
-    live location updates. In production this endpoint is secured
-    with a device API key. For demo, it's open.
+    live location updates. Requires X-API-Key header when
+    BUS_TRACKING_API_KEY is set (required in production).
     """
     success = await update_bus_location(
         bus_id=body.bus_id,

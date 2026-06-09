@@ -127,7 +127,10 @@ class Bus(Base):
         from datetime import timezone
         from app.core.config import settings
         now = datetime.now(timezone.utc)
-        delta = (now - self.last_location_update).total_seconds()
+        last_update = self.last_location_update
+        if last_update.tzinfo is None:
+            last_update = last_update.replace(tzinfo=timezone.utc)
+        delta = (now - last_update).total_seconds()
         return delta > settings.BUS_LOCATION_STALE_SECONDS
 
     @property
