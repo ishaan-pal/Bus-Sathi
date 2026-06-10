@@ -30,20 +30,14 @@ async function request<T>(
 }
 
 export const api = {
-  sendOtp: (mobile: string) =>
-    request<{ success: boolean; dev_otp?: string }>('/auth/send-otp', {
-      method: 'POST',
-      body: JSON.stringify({ mobile }),
-    }),
-
-  verifyOtp: (mobile: string, otp: string) =>
+  login: (mobile: string) =>
     request<{
       tokens: { access_token: string; refresh_token: string }
       user: { is_admin: boolean; name?: string; mobile: string }
-    }>('/auth/verify-otp', {
+    }>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ mobile, otp }),
-    }),
+      body: JSON.stringify({ mobile }),
+    }).then((data) => data),
 
   me: () =>
     request<{

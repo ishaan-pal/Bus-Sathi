@@ -46,23 +46,19 @@ def _build_api_description() -> str:
 A modern government-grade passenger platform for Haryana Roadways.
 
 ### Features
-- 🔐 **OTP Authentication** — Mobile OTP with JWT tokens
+- 🔐 **Mobile Login** — Sign in with mobile number (JWT, no OTP)
+- 🪪 **Aadhaar KYC** — Required for tickets & passes (stub until govt API)
 - 🗺️ **Live Bus Tracking** — Real-time GPS location & ETA
 - 🎫 **Digital Ticketing** — Route-based fare with age concessions
-- 🪪 **Bus Pass Management** — Student, senior citizen, monthly passes
 - 🛡️ **Secure Verification** — Rotating tokens for conductor checks
 
 ### Auth
 All protected endpoints require `Authorization: Bearer <token>` header.
-Use `/api/v1/auth/send-otp` → `/api/v1/auth/verify-otp` to get tokens.
+Use `POST /auth/login` with mobile number to get tokens.
+Use `POST /auth/verify-aadhaar` before booking tickets or applying for passes.
 """
-    if settings.OTP_DEV_MODE:
-        description += f"""
-### Development Mode
-- OTP dev mode is enabled (fixed OTP: `{settings.OTP_DEV_FIXED}`)
-"""
-        if settings.SEED_ADMIN_MOBILE:
-            description += f"- Seed admin mobile: `{settings.SEED_ADMIN_MOBILE}`\n"
+    if settings.SEED_ADMIN_MOBILE:
+        description += f"\n### Dev Admin\n- Seed admin mobile: `{settings.SEED_ADMIN_MOBILE}`\n"
     return description
 
 

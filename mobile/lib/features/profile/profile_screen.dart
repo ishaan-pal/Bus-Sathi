@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/aadhaar_banner.dart';
 import '../../core/widgets/hr_app_bar.dart';
 import '../auth/auth_cubit.dart';
 
@@ -18,11 +19,51 @@ class ProfileScreen extends StatelessWidget {
         builder: (context, state) {
           final user = state.user;
           if (user == null) {
-            return const Center(child: CircularProgressIndicator());
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                const AadhaarBanner(),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      children: [
+                        const CircleAvatar(
+                          radius: 40,
+                          backgroundColor: AppColors.deepBlue,
+                          child: Icon(Icons.person, size: 40, color: Colors.white),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Guest Passenger',
+                          style: GoogleFonts.poppins(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          state.status == AuthStatus.loading
+                              ? 'Connecting...'
+                              : 'Browse buses freely. Verify Aadhaar when you book tickets or apply for passes.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.poppins(
+                            color: AppColors.textSecondary,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
           }
+
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              const AadhaarBanner(),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
@@ -51,46 +92,37 @@ class ProfileScreen extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Text(
-                        '+91 ${user.mobile}',
-                        style: GoogleFonts.poppins(
-                          color: AppColors.textSecondary,
+                      if (user.mobile.isNotEmpty)
+                        Text(
+                          '+91 ${user.mobile}',
+                          style: GoogleFonts.poppins(
+                            color: AppColors.textSecondary,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-              _infoTile(Icons.phone, 'Mobile', '+91 ${user.mobile}'),
+              if (user.mobile.isNotEmpty)
+                _infoTile(Icons.phone, 'Mobile', '+91 ${user.mobile}'),
               if (user.dateOfBirth != null)
                 _infoTile(Icons.cake, 'Date of Birth', user.dateOfBirth!),
               if (user.age != null)
                 _infoTile(Icons.person, 'Age', '${user.age} years'),
               _infoTile(
-                Icons.verified_user,
-                'Profile',
-                user.profileComplete ? 'Complete' : 'Incomplete',
-              ),
-              _infoTile(
                 Icons.fingerprint,
                 'Aadhaar',
                 user.aadhaarVerified ? 'Verified' : 'Not verified',
+                trailing: user.aadhaarVerified
+                    ? const Icon(Icons.check_circle, color: AppColors.green)
+                    : TextButton(
+                        onPressed: () => context.push('/aadhaar-verify'),
+                        child: const Text('Verify'),
+                      ),
               ),
               if (user.isSeniorCitizen)
                 _infoTile(Icons.elderly, 'Category', 'Senior Citizen'),
-              const SizedBox(height: 24),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  await context.read<AuthCubit>().logout();
-                  if (context.mounted) context.go('/login');
-                },
-                icon: const Icon(Icons.logout, color: AppColors.error),
-                label: Text(
-                  'Logout',
-                  style: GoogleFonts.poppins(color: AppColors.error),
-                ),
-              ),
             ],
           );
         },
@@ -98,7 +130,12 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _infoTile(IconData icon, String label, String value) {
+  Widget _infoTile(
+    IconData icon,
+    String label,
+    String value, {
+    Widget? trailing,
+  }) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
@@ -108,6 +145,7 @@ class ProfileScreen extends StatelessWidget {
           value,
           style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
         ),
+        trailing: trailing,
       ),
     );
   }

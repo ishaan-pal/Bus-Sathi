@@ -30,8 +30,8 @@ class _HaryanaRoadwaysAppState extends State<HaryanaRoadwaysApp> {
     super.initState();
     _apiClient = ApiClient();
     _authRepository = AuthRepository(_apiClient);
-    _authCubit = AuthCubit(_authRepository)..checkAuthStatus();
-    _appRouter = AppRouter(_authCubit);
+    _authCubit = AuthCubit(_authRepository)..initSession();
+    _appRouter = AppRouter();
   }
 
   @override

@@ -6,6 +6,7 @@ import '../../core/api/api_client.dart';
 import '../../core/models/route_model.dart';
 import '../../core/models/ticket_model.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/aadhaar_banner.dart';
 import '../../core/widgets/hr_app_bar.dart';
 import '../../core/widgets/loading_overlay.dart';
 import '../buses/bus_repository.dart';
@@ -92,7 +93,9 @@ class _FarePreviewScreenState extends State<FarePreviewScreen> {
     }
   }
 
-  void _book() {
+  Future<void> _book() async {
+    final ok = await ensureAadhaarVerified(context);
+    if (!ok || !mounted) return;
     context.push('/booking', extra: {
       'busId': widget.busId,
       'from': widget.fromStop,

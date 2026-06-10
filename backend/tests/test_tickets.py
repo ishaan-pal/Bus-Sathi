@@ -17,7 +17,7 @@ def test_fare_calculate(client):
     assert resp.json()["fare"]["total_fare_rupees"] > 0
 
 
-def test_booking_flow(client, user_token):
+def test_booking_flow(client, verified_user_token):
     search = client.post(
         "/api/v1/buses/search",
         json={
@@ -37,7 +37,7 @@ def test_booking_flow(client, user_token):
             "destination_stop": "Ambala City",
             "adult_count": 1,
         },
-        headers={"Authorization": f"Bearer {user_token}"},
+        headers={"Authorization": f"Bearer {verified_user_token}"},
     )
     assert book.status_code == 200, book.text
     ticket_id = book.json()["ticket_id"]
@@ -49,13 +49,13 @@ def test_booking_flow(client, user_token):
             "payment_id": "pay_demo_test",
             "razorpay_signature": "demo_sig",
         },
-        headers={"Authorization": f"Bearer {user_token}"},
+        headers={"Authorization": f"Bearer {verified_user_token}"},
     )
     assert confirm.status_code == 200
 
     active = client.get(
         "/api/v1/tickets/active",
-        headers={"Authorization": f"Bearer {user_token}"},
+        headers={"Authorization": f"Bearer {verified_user_token}"},
     )
     assert active.status_code == 200
     assert active.json()["total"] >= 1

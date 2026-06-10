@@ -1,38 +1,27 @@
-from tests.conftest import ADMIN_MOBILE, DEV_OTP
+from tests.conftest import ADMIN_MOBILE
 
 
-def test_send_otp(client):
-    resp = client.post("/api/v1/auth/send-otp", json={"mobile": "9123456789"})
+def test_login(client):
+    resp = client.post("/api/v1/auth/login", json={"mobile": "9123456789"})
     assert resp.status_code == 200
     data = resp.json()
     assert data["success"] is True
-    if data.get("dev_mode"):
-        assert data.get("dev_otp") == DEV_OTP
+    assert "access_token" in data["tokens"]
 
 
-def test_verify_otp_invalid(client):
-    client.post("/api/v1/auth/send-otp", json={"mobile": "9123456788"})
-    resp = client.post(
-        "/api/v1/auth/verify-otp",
-        json={"mobile": "9123456788", "otp": "000000"},
-    )
-    assert resp.status_code == 400
+def test_login_invalid_mobile(client):
+    resp = client.post("/api/v1/auth/login", json={"mobile": "12345"})
+    assert resp.status_code == 422
 
 
 def test_admin_login(client):
-    client.post("/api/v1/auth/send-otp", json={"mobile": ADMIN_MOBILE})
-    resp = client.post(
-        "/api/v1/auth/verify-otp",
-        json={"mobile": ADMIN_MOBILE, "otp": DEV_OTP},
-    )
+    resp = client.post("/api/v1/auth/login", json={"mobile": ADMIN_MOBILE})
     assert resp.status_code == 200
-    data = resp.json()
-    assert data["user"]["is_admin"] is True
+    assert resp.json()["user"]["is_admin"] is True
 
 
 def test_me_requires_auth(client):
-    resp = client.get("/api/v1/auth/me")
-    assert resp.status_code == 401
+    assert client.get("/api/v1/auth/me").status_code == 401
 
 
 def test_me_with_token(client, admin_token):
@@ -42,3 +31,16 @@ def test_me_with_token(client, admin_token):
     )
     assert resp.status_code == 200
     assert resp.json()["mobile"] == ADMIN_MOBILE
+
+
+def test_verify_aadhaar(client):
+    login = client.post("/api/v1/auth/login", json={"mobile": "9123456780"})
+    assert login.status_code == 200
+    token = login.json()["tokens"]["access_token"]
+    resp = client.post(
+        "/api/v1/auth/verify-aadhaar",
+        json={"aadhaar_number": "912345678901"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["user"]["aadhaar_verified"] is True

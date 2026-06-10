@@ -35,18 +35,7 @@ class Settings(BaseSettings):
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
     REDIS_PASSWORD: Optional[str] = None
-    OTP_EXPIRE_SECONDS: int = 300                     # 5 minutes
     TICKET_CACHE_SECONDS: int = 3600                  # 1 hour
-
-    # ── OTP ──────────────────────────────────────────────
-    OTP_LENGTH: int = 6
-    OTP_MAX_ATTEMPTS: int = 3
-    OTP_DEV_MODE: bool = False
-    OTP_DEV_FIXED: Optional[str] = None
-
-    # ── SMS (Fast2SMS — free tier) ────────────────────────
-    SMS_API_KEY: Optional[str] = None
-    SMS_SENDER_ID: str = "HRRDWY"
 
     # ── Aadhaar (stub until govt API credentials obtained) ─
     AADHAAR_ENABLED: bool = False
@@ -147,16 +136,10 @@ class Settings(BaseSettings):
             else:
                 raise ValueError("SECRET_KEY must be set when DEBUG=False")
 
-        if self.OTP_DEV_MODE and not self.OTP_DEV_FIXED:
-            raise ValueError("OTP_DEV_FIXED must be set when OTP_DEV_MODE=True")
-
-        if not self.DEBUG:
-            if self.OTP_DEV_MODE:
-                raise ValueError("OTP_DEV_MODE must be False in production (DEBUG=False)")
-            if not self.BUS_TRACKING_API_KEY:
-                raise ValueError(
-                    "BUS_TRACKING_API_KEY must be set when DEBUG=False"
-                )
+        if not self.DEBUG and not self.BUS_TRACKING_API_KEY:
+            raise ValueError(
+                "BUS_TRACKING_API_KEY must be set when DEBUG=False"
+            )
 
         return self
 

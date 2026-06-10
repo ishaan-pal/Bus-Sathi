@@ -8,90 +8,59 @@ import 'auth_repository.dart';
 part 'auth_state.dart';
 
 class AuthCubit extends Cubit<AuthState> {
-  AuthCubit(this._repository) : super(const AuthState.unknown());
+  AuthCubit(this._repository) : super(const AuthState.ready());
 
   final AuthRepository _repository;
 
-  Future<void> checkAuthStatus() async {
-    emit(state.copyWith(status: AuthStatus.loading));
+  /// Opens the app immediately; guest session is created in the background.
+  Future<void> initSession() async {
     try {
-      final loggedIn = await _repository.isLoggedIn();
-      if (!loggedIn) {
-        emit(const AuthState.unauthenticated());
-        return;
+      final user = await _repository.ensureGuestSession();
+      if (user != null) {
+        emit(AuthState.authenticated(user));
       }
-      final profileComplete = await _repository.isProfileComplete();
-      if (!profileComplete) {
-        emit(const AuthState.needsProfile());
-        return;
-      }
-      final user = await _repository.getMe();
-      emit(AuthState.authenticated(user));
-    } on ApiException catch (e) {
-      await _repository.logout();
-      emit(AuthState.unauthenticated(message: e.message));
     } catch (_) {
-      await _repository.logout();
-      emit(const AuthState.unauthenticated());
+      // Public features still work without a session.
     }
   }
 
-  Future<void> sendOtp(String mobile) async {
-    emit(state.copyWith(status: AuthStatus.loading, errorMessage: null));
-    try {
-      final message = await _repository.sendOtp(mobile);
-      emit(state.copyWith(
-        status: AuthStatus.otpSent,
-        mobile: mobile,
-        successMessage: message,
-      ));
-    } on ApiException catch (e) {
-      emit(state.copyWith(status: AuthStatus.failure, errorMessage: e.message));
-    }
-  }
+  Future<void> ensureSession() async {
+    if (state.user != null) return;
 
-  Future<void> verifyOtp(String otp) async {
-    final mobile = state.mobile;
-    if (mobile == null) return;
     emit(state.copyWith(status: AuthStatus.loading, errorMessage: null));
     try {
-      final result = await _repository.verifyOtp(mobile, otp);
-      if (!result.user.profileComplete) {
-        emit(AuthState.needsProfile(user: result.user, mobile: mobile));
+      final user = await _repository.ensureGuestSession();
+      if (user != null) {
+        emit(AuthState.authenticated(user));
       } else {
-        emit(AuthState.authenticated(result.user));
+        emit(const AuthState.ready());
       }
     } on ApiException catch (e) {
-      emit(state.copyWith(status: AuthStatus.failure, errorMessage: e.message));
+      emit(AuthState.ready(message: e.message));
+    } catch (_) {
+      emit(const AuthState.ready());
     }
   }
 
-  Future<void> completeProfile({
-    required String name,
-    required String dateOfBirth,
-  }) async {
+  Future<bool> verifyAadhaar(String aadhaar) async {
+    await ensureSession();
+    if (state.user == null) {
+      emit(state.copyWith(errorMessage: 'Unable to connect to server'));
+      return false;
+    }
+
     emit(state.copyWith(status: AuthStatus.loading, errorMessage: null));
     try {
-      final user = await _repository.completeProfile(
-        name: name,
-        dateOfBirth: dateOfBirth,
-      );
+      final user = await _repository.verifyAadhaar(aadhaar);
       emit(AuthState.authenticated(user));
+      return true;
     } on ApiException catch (e) {
-      emit(state.copyWith(status: AuthStatus.failure, errorMessage: e.message));
-    }
-  }
-
-  Future<void> verifyAadhaar(String aadhaar) async {
-    emit(state.copyWith(status: AuthStatus.loading, errorMessage: null));
-    try {
-      await _repository.verifyAadhaar(aadhaar);
       emit(state.copyWith(
-        status: AuthStatus.aadhaarVerified,
-        successMessage: 'Aadhaar verified successfully',
+        status: AuthStatus.authenticated,
+        user: state.user,
+        errorMessage: e.message,
       ));
-    } on ApiException catch (e) {
-      emit(state.copyWith(status: AuthStatus.failure, errorMessage: e.message));
+      return false;
     }
   }
 
@@ -102,11 +71,6 @@ class AuthCubit extends Cubit<AuthState> {
     } on ApiException catch (e) {
       emit(state.copyWith(errorMessage: e.message));
     }
-  }
-
-  Future<void> logout() async {
-    await _repository.logout();
-    emit(const AuthState.unauthenticated());
   }
 
   void clearMessages() {

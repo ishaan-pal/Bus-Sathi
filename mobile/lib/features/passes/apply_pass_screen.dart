@@ -8,6 +8,7 @@ import '../../core/api/api_client.dart';
 import '../../core/models/pass_model.dart';
 import '../../core/models/route_model.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/aadhaar_banner.dart';
 import '../../core/widgets/hr_app_bar.dart';
 import '../../core/widgets/loading_overlay.dart';
 import '../buses/bus_repository.dart';
@@ -88,6 +89,8 @@ class _ApplyPassScreenState extends State<ApplyPassScreen> {
       );
       return;
     }
+    final ok = await ensureAadhaarVerified(context);
+    if (!ok || !mounted) return;
     setState(() => _loading = true);
     try {
       final app = await _passRepo.applyForPass(

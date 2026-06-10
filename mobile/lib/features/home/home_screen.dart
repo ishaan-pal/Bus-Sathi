@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/route_model.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/aadhaar_banner.dart';
 import '../../core/widgets/error_view.dart';
 import '../../core/widgets/hr_app_bar.dart';
 import '../../core/widgets/loading_overlay.dart';
@@ -92,6 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  const AadhaarBanner(),
                   _buildSearchCard(),
                   const SizedBox(height: 24),
                   Text(

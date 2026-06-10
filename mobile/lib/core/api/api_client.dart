@@ -50,14 +50,14 @@ class ApiClient {
     required String accessToken,
     required String refreshToken,
     required String userId,
-    required bool profileComplete,
+    required bool aadhaarVerified,
   }) async {
     await _storage.write(key: AppConfig.accessTokenKey, value: accessToken);
     await _storage.write(key: AppConfig.refreshTokenKey, value: refreshToken);
     await _storage.write(key: AppConfig.userIdKey, value: userId);
     await _storage.write(
-      key: AppConfig.profileCompleteKey,
-      value: profileComplete.toString(),
+      key: AppConfig.aadhaarVerifiedKey,
+      value: aadhaarVerified.toString(),
     );
   }
 
@@ -65,7 +65,7 @@ class ApiClient {
     await _storage.delete(key: AppConfig.accessTokenKey);
     await _storage.delete(key: AppConfig.refreshTokenKey);
     await _storage.delete(key: AppConfig.userIdKey);
-    await _storage.delete(key: AppConfig.profileCompleteKey);
+    await _storage.delete(key: AppConfig.aadhaarVerifiedKey);
   }
 
   Future<String?> getAccessToken() =>
@@ -76,13 +76,18 @@ class ApiClient {
 
   Future<String?> getUserId() => _storage.read(key: AppConfig.userIdKey);
 
+  Future<String?> readStorage(String key) => _storage.read(key: key);
+
+  Future<void> writeStorage(String key, String value) =>
+      _storage.write(key: key, value: value);
+
   Future<bool> isLoggedIn() async {
     final token = await getAccessToken();
     return token != null && token.isNotEmpty;
   }
 
-  Future<bool> isProfileComplete() async {
-    final value = await _storage.read(key: AppConfig.profileCompleteKey);
+  Future<bool> isAadhaarVerified() async {
+    final value = await _storage.read(key: AppConfig.aadhaarVerifiedKey);
     return value == 'true';
   }
 

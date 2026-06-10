@@ -8,6 +8,7 @@ from app.core.dependencies import (
     get_db,
     get_redis,
     get_current_user,
+    require_aadhaar_verified,
     get_current_admin,
 )
 from app.models.user import User
@@ -49,7 +50,7 @@ router = APIRouter(prefix="/tickets", tags=["Tickets"])
 )
 async def initiate_booking_endpoint(
     body: InitiateBookingRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_aadhaar_verified),
     db: AsyncSession = Depends(get_db),
     redis: aioredis.Redis = Depends(get_redis),
 ):

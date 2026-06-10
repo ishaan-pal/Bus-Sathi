@@ -1,10 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/auth/auth_cubit.dart';
-import '../../features/auth/login_screen.dart';
-import '../../features/auth/otp_screen.dart';
-import '../../features/auth/profile_setup_screen.dart';
+import '../../features/auth/aadhaar_verify_screen.dart';
 import '../../features/buses/bus_detail_screen.dart';
 import '../../features/buses/search_results_screen.dart';
 import '../../features/passes/active_pass_screen.dart';
@@ -16,31 +12,14 @@ import '../../features/tickets/fare_preview_screen.dart';
 import '../../features/tickets/ticket_detail_screen.dart';
 
 class AppRouter {
-  AppRouter(this._authCubit);
-
-  final AuthCubit _authCubit;
+  AppRouter();
 
   late final GoRouter router = GoRouter(
-    initialLocation: '/login',
-    refreshListenable: _AuthRefreshNotifier(_authCubit),
-    redirect: _redirect,
+    initialLocation: '/home',
     routes: [
       GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginScreen(),
-      ),
-      GoRoute(
-        path: '/otp',
-        builder: (context, state) {
-          final mobile = state.extra as String? ??
-              _authCubit.state.mobile ??
-              '';
-          return OtpScreen(mobile: mobile);
-        },
-      ),
-      GoRoute(
-        path: '/profile-setup',
-        builder: (context, state) => const ProfileSetupScreen(),
+        path: '/aadhaar-verify',
+        builder: (context, state) => const AadhaarVerifyScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
@@ -154,41 +133,4 @@ class AppRouter {
       ),
     ],
   );
-
-  String? _redirect(BuildContext context, GoRouterState state) {
-    final authState = _authCubit.state;
-    final isLoggingIn = state.matchedLocation == '/login';
-    final isOtp = state.matchedLocation == '/otp';
-    final isProfileSetup = state.matchedLocation == '/profile-setup';
-
-    if (authState.status == AuthStatus.unknown ||
-        authState.status == AuthStatus.loading) {
-      return null;
-    }
-
-    final isAuthenticated = authState.status == AuthStatus.authenticated;
-    final needsProfile = authState.status == AuthStatus.needsProfile;
-
-    if (!isAuthenticated && !needsProfile && !isLoggingIn && !isOtp) {
-      return '/login';
-    }
-
-    if (needsProfile && !isProfileSetup) {
-      return '/profile-setup';
-    }
-
-    if (isAuthenticated && (isLoggingIn || isOtp || isProfileSetup)) {
-      return '/home';
-    }
-
-    return null;
-  }
-}
-
-class _AuthRefreshNotifier extends ChangeNotifier {
-  _AuthRefreshNotifier(this._cubit) {
-    _cubit.stream.listen((_) => notifyListeners());
-  }
-
-  final AuthCubit _cubit;
 }

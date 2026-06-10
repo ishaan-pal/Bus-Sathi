@@ -1,6 +1,6 @@
 # Haryana Roadways — Digital Passenger Platform
 
-A full-stack government-grade platform for Haryana Roadways: OTP authentication, live bus tracking, digital ticketing, and bus pass management.
+Full-stack platform for Haryana Roadways: mobile login (no OTP), Aadhaar KYC, live bus tracking, digital ticketing, and bus pass management.
 
 ## Project Structure
 
@@ -8,79 +8,76 @@ A full-stack government-grade platform for Haryana Roadways: OTP authentication,
 haryana_roadways/
 ├── backend/     FastAPI + PostgreSQL + Redis
 ├── admin/       React admin panel (Vite)
-└── mobile/      Flutter passenger app
+└── mobile/      Flutter passenger app (Android/iOS)
 ```
 
-## Quick Start (Development)
+## Quick Start
 
 ### 1. Backend
 
 ```bash
 cd backend
-cp .env.example .env          # demo credentials pre-filled
-docker compose up -d            # PostgreSQL + Redis
+cp .env.example .env
+docker compose up -d
 uv sync
 uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 API docs: http://localhost:8000/docs
 
-**Dev login:**
-- Any mobile + OTP `123456`
-- Admin: `9999999999` + OTP `123456`
-
-### 2. Admin Panel
-
-```bash
-cd admin
-npm install
-npm run dev                     # http://localhost:5173
-```
-
-Login with admin mobile `9999999999` and OTP `123456`.
-
-### 3. Mobile App
+### 2. Mobile (Android)
 
 ```bash
 cd mobile
 flutter pub get
-flutter run                     # Android emulator / device
+
+# Physical phone (same Wi‑Fi as PC — replace with your PC IP):
+flutter run --dart-define=API_HOST=192.168.x.x
+
+# Android emulator:
+flutter run
+
+# Build APK for phone:
+flutter build apk --debug --dart-define=API_HOST=192.168.x.x
+adb install build/app/outputs/flutter-apk/app-debug.apk
 ```
 
-Uses `http://localhost:8000` by default (see `lib/core/config.dart`).
+**Login:** enter any 10-digit mobile → instant access (no OTP).
 
-## Running Tests
+**Aadhaar:** required for booking tickets & applying for passes (stub: any 12-digit number until govt API is connected).
+
+### 3. Admin Panel
 
 ```bash
-# Backend (requires PostgreSQL + Redis running)
+cd admin && npm install && npm run dev
+```
+
+Sign in with admin mobile from `.env` (`SEED_ADMIN_MOBILE`, default `9999999999`) — no OTP.
+
+## Auth Flow
+
+| Step | Mobile App | Admin |
+|------|------------|-------|
+| Sign in | `POST /auth/login` {mobile} | Same |
+| Browse buses | ✓ after login | — |
+| Book ticket / apply pass | Requires Aadhaar verify | — |
+| Admin features | — | Requires `is_admin` |
+
+## Tests
+
+```bash
 cd backend && uv run pytest tests/ -v
-
-# Mobile
 cd mobile && flutter test
-
-# Admin build check
 cd admin && npm run build
 ```
 
-## Production
+## Production Checklist
 
-Copy `.env.example` and set `DEBUG=False` with real credentials:
+Set in `.env` with `DEBUG=False`:
 
 - `SECRET_KEY` — long random string
 - `POSTGRES_PASSWORD` — strong password
-- `OTP_DEV_MODE=False` + `SMS_API_KEY`
-- `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET`
-- `BUS_TRACKING_API_KEY`
+- `BUS_TRACKING_API_KEY` — GPS device feed
+- `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` — live payments
+- `AADHAAR_API_URL` / `AADHAAR_API_KEY` — when govt credentials obtained
 - Unset `SEED_ADMIN_MOBILE`
-
-## Features
-
-| Feature | Backend | Admin | Mobile |
-|---------|---------|-------|--------|
-| OTP Auth | ✅ | ✅ | ✅ |
-| Live Bus Tracking | ✅ | ✅ | ✅ |
-| Digital Ticketing | ✅ | ✅ | ✅ |
-| Bus Pass Management | ✅ | ✅ | ✅ |
-| Admin Dashboard | ✅ | ✅ | — |
-| Aadhaar KYC | Stub | — | Stub |
-| Razorpay Payments | Demo/Live | — | Demo |

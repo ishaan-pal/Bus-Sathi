@@ -106,6 +106,18 @@ async def get_current_admin(
     return current_user
 
 
+async def require_aadhaar_verified(
+    current_user=Depends(get_current_user),
+):
+    """Require Aadhaar KYC for ticket booking and pass applications."""
+    if not current_user.aadhaar_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Aadhaar verification required. Complete verification in your profile.",
+        )
+    return current_user
+
+
 # ── Bus GPS device API key ────────────────────────────────────────────────────
 async def verify_bus_tracking_api_key(
     x_api_key: Optional[str] = Header(None, alias="X-API-Key"),

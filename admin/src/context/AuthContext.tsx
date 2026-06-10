@@ -11,7 +11,7 @@ interface AuthState {
   token: string | null
   user: { mobile: string; name?: string; is_admin: boolean } | null
   loading: boolean
-  login: (mobile: string, otp: string) => Promise<void>
+  login: (mobile: string) => Promise<void>
   logout: () => void
 }
 
@@ -47,8 +47,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false))
   }, [token])
 
-  const login = async (mobile: string, otp: string) => {
-    const data = await api.verifyOtp(mobile, otp)
+  const login = async (mobile: string) => {
+    const data = await api.login(mobile)
     if (!data.user.is_admin) {
       throw new ApiError('Admin access required', 403)
     }
