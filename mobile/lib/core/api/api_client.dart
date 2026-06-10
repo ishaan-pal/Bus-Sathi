@@ -19,8 +19,8 @@ class ApiClient {
     _dio = Dio(
       BaseOptions(
         baseUrl: AppConfig.apiBaseUrl,
-        connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: const Duration(seconds: 30),
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 15),
         headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
       ),
     );
@@ -142,12 +142,17 @@ class ApiClient {
         return detail.first.toString();
       }
     }
+    final server = AppConfig.apiBaseUrl;
     if (error.type == DioExceptionType.connectionError) {
-      return 'Unable to connect to server. Check your connection.';
+      return 'Unable to connect to $server. '
+          'USB: run scripts/dev-mobile.sh. '
+          'Wi‑Fi: same network + scripts/forward-api-port.ps1 (WSL2).';
     }
     if (error.type == DioExceptionType.connectionTimeout ||
         error.type == DioExceptionType.receiveTimeout) {
-      return 'Request timed out. Please try again.';
+      return 'Request timed out reaching $server. '
+          'USB: run scripts/dev-mobile.sh. '
+          'Wi‑Fi: run scripts/forward-api-port.ps1 as Administrator.';
     }
     return error.message ?? 'Something went wrong';
   }

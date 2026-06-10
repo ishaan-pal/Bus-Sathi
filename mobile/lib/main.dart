@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'core/api/api_client.dart';
+import 'core/config.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/auth_cubit.dart';
@@ -29,6 +31,9 @@ class _HaryanaRoadwaysAppState extends State<HaryanaRoadwaysApp> {
   void initState() {
     super.initState();
     _apiClient = ApiClient();
+    if (kDebugMode) {
+      debugPrint('API base URL: ${AppConfig.apiBaseUrl}');
+    }
     _authRepository = AuthRepository(_apiClient);
     _authCubit = AuthCubit(_authRepository)..initSession();
     _appRouter = AppRouter();

@@ -5,7 +5,10 @@ import 'package:flutter/foundation.dart';
 class AppConfig {
   AppConfig._();
 
-  /// Override: flutter run --dart-define=API_HOST=192.168.1.5
+  /// Override API host at build/run time:
+  /// - USB device: `adb reverse tcp:8000 tcp:8000` then API_HOST=127.0.0.1
+  /// - Wi‑Fi device: API_HOST=<PC LAN IP> + scripts/forward-api-port.ps1 on WSL2
+  /// - Emulator: omit API_HOST (uses 10.0.2.2)
   static String get apiBaseUrl {
     const host = String.fromEnvironment('API_HOST');
     if (host.isNotEmpty) {

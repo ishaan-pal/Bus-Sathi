@@ -27,11 +27,28 @@ API docs: http://localhost:8000/docs
 
 ### 2. Mobile (Android)
 
+**USB-connected phone (recommended on WSL2):**
+
+```bash
+chmod +x scripts/dev-mobile.sh
+./scripts/dev-mobile.sh
+```
+
+This runs `adb reverse` so the phone uses `127.0.0.1:8000` — no Wi‑Fi or port-proxy setup needed.
+
+**Wi‑Fi phone (WSL2):** In **PowerShell as Administrator**:
+
+```powershell
+.\scripts\forward-api-port.ps1
+```
+
+Then use the printed LAN IP. Re-run after a WSL restart.
+
 ```bash
 cd mobile
 flutter pub get
 
-# Physical phone (same Wi‑Fi as PC — replace with your PC IP):
+# Wi‑Fi phone (same network as PC):
 flutter run --dart-define=API_HOST=192.168.x.x
 
 # Android emulator:
