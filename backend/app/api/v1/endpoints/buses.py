@@ -30,6 +30,7 @@ from app.schemas.bus import (
     ETAResponse,
     RouteResponse,
     RouteStopResponse,
+    StopsListResponse,
     CreateBusRequest,
     UpdateBusStatusRequest,
     AdminBusListItem,
@@ -239,6 +240,28 @@ async def get_eta(
             detail=f"Stop '{stop}' not found on this bus route",
         )
     return ETAResponse(**eta)
+
+
+# ── All Stops (for search dropdowns) ─────────────────────────────────────────
+@router.get(
+    "/stops/all",
+    response_model=StopsListResponse,
+    summary="Get all unique bus stop names",
+)
+async def get_all_stops(
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_optional_user),
+):
+    """Returns sorted unique stop names from all active routes."""
+    result = await db.execute(
+        select(RouteStop.stop_name)
+        .join(Route, RouteStop.route_id == Route.id)
+        .where(Route.is_active == True)
+        .distinct()
+        .order_by(RouteStop.stop_name)
+    )
+    stops = [row[0] for row in result.fetchall()]
+    return StopsListResponse(stops=stops, total=len(stops))
 
 
 # ── All Routes ────────────────────────────────────────────────────────────────

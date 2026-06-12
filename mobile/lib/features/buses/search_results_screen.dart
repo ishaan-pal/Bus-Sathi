@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/app_api.dart';
+import '../../core/demo_buses.dart';
 import '../../core/models/bus_model.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/empty_state.dart';
@@ -31,11 +33,12 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   List<BusSearchResult> _buses = [];
   bool _loading = true;
   String? _error;
+  bool _usingDemoBuses = false;
 
   @override
   void initState() {
     super.initState();
-    _repo = BusRepository(ApiClient());
+    _repo = BusRepository(AppApi.client);
     _search();
   }
 
@@ -52,12 +55,38 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       setState(() {
         _buses = results;
         _loading = false;
+        _usingDemoBuses = false;
+        _error = null;
       });
     } on ApiException catch (e) {
-      setState(() {
-        _error = e.message;
-        _loading = false;
-      });
+      final isConnectionIssue = e.statusCode == null;
+      if (isConnectionIssue) {
+        setState(() {
+          _buses = DemoBuses.forRoute(
+            fromStop: widget.fromStop,
+            toStop: widget.toStop,
+          );
+          _loading = false;
+          _usingDemoBuses = true;
+          _error = null;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Server unreachable. Showing demo buses. ${e.message}',
+              ),
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+      } else {
+        setState(() {
+          _error = e.message;
+          _loading = false;
+          _usingDemoBuses = false;
+        });
+      }
     }
   }
 
@@ -102,6 +131,17 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                   ],
                 ),
               ),
+              if (_usingDemoBuses)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  color: AppColors.saffron.withValues(alpha: 0.15),
+                  child: Text(
+                    'Demo buses — connect to backend for live results',
+                    style: GoogleFonts.poppins(fontSize: 12),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               Expanded(
                 child: _error != null
                     ? ErrorView(message: _error!, onRetry: _search)

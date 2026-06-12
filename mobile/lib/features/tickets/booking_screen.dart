@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/app_api.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/hr_app_bar.dart';
 import '../../core/widgets/loading_overlay.dart';
@@ -41,7 +42,7 @@ class _BookingScreenState extends State<BookingScreen> {
   @override
   void initState() {
     super.initState();
-    _repo = TicketRepository(ApiClient());
+    _repo = TicketRepository(AppApi.client);
   }
 
   Future<void> _bookAndPay() async {

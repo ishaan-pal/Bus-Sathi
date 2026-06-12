@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'core/api/api_client.dart';
+import 'core/api/app_api.dart';
 import 'core/config.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
@@ -31,8 +32,13 @@ class _HaryanaRoadwaysAppState extends State<HaryanaRoadwaysApp> {
   void initState() {
     super.initState();
     _apiClient = ApiClient();
+    AppApi.configure(_apiClient);
     if (kDebugMode) {
       debugPrint('API base URL: ${AppConfig.apiBaseUrl}');
+      final configError = AppConfig.apiHostConfigError();
+      if (configError != null) {
+        debugPrint('⚠️ API config: $configError');
+      }
     }
     _authRepository = AuthRepository(_apiClient);
     _authCubit = AuthCubit(_authRepository)..initSession();

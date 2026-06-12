@@ -134,6 +134,14 @@ class ApiClient {
   }
 
   String _extractMessage(DioException error) {
+    final configError = AppConfig.apiHostConfigError();
+    if (configError != null &&
+        (error.type == DioExceptionType.connectionError ||
+            error.type == DioExceptionType.connectionTimeout ||
+            error.type == DioExceptionType.receiveTimeout)) {
+      return configError;
+    }
+
     final data = error.response?.data;
     if (data is Map && data['detail'] != null) {
       final detail = data['detail'];

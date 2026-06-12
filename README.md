@@ -25,6 +25,12 @@ uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 API docs: http://localhost:8000/docs
 
+**Re-seed test buses** (adds GPS-tracked buses on all routes):
+
+```bash
+cd backend && uv run python scripts/seed_test_buses.py
+```
+
 ### 2. Mobile (Android)
 
 **USB-connected phone (recommended on WSL2):**

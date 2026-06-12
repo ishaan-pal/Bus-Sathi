@@ -6,18 +6,43 @@ class AppConfig {
   AppConfig._();
 
   /// Override API host at build/run time:
-  /// - USB device: `adb reverse tcp:8000 tcp:8000` then API_HOST=127.0.0.1
-  /// - Wi‑Fi device: API_HOST=<PC LAN IP> + scripts/forward-api-port.ps1 on WSL2
+  /// - USB device: run `./scripts/dev-mobile.sh` (uses 127.0.0.1 + adb reverse)
+  /// - Wi‑Fi device: API_HOST=192.168.x.x + scripts/forward-api-port.ps1 on WSL2
   /// - Emulator: omit API_HOST (uses 10.0.2.2)
-  static String get apiBaseUrl {
+  static String get apiHost {
     const host = String.fromEnvironment('API_HOST');
-    if (host.isNotEmpty) {
-      return 'http://$host:8000/api/v1';
+    if (host.isNotEmpty) return host;
+    // Physical Android over USB: run `adb reverse tcp:8000 tcp:8000` first.
+    // Android emulator: flutter run --dart-define=API_HOST=10.0.2.2
+    if (!kIsWeb && Platform.isAndroid) return '127.0.0.1';
+    return 'localhost';
+  }
+
+  static String get apiBaseUrl => 'http://$apiHost:8000/api/v1';
+
+  /// Returns a user-facing message when [API_HOST] looks wrong, else null.
+  static String? apiHostConfigError() {
+    const host = String.fromEnvironment('API_HOST');
+    if (host.isEmpty) return null;
+
+    if (host.endsWith('2484')) {
+      return 'API_HOST looks wrong: "$host". '
+          'Use 192.168.29.248 (not 2484), or run ./scripts/dev-mobile.sh over USB.';
     }
-    if (!kIsWeb && Platform.isAndroid) {
-      return 'http://10.0.2.2:8000/api/v1';
+
+    final ipv4 = RegExp(r'^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$');
+    final match = ipv4.firstMatch(host);
+    if (match != null) {
+      for (var i = 1; i <= 4; i++) {
+        final octet = int.parse(match.group(i)!);
+        if (octet > 255) {
+          return 'Invalid API_HOST "$host": IP numbers must be 0–255. '
+              'Try 192.168.29.248 or ./scripts/dev-mobile.sh';
+        }
+      }
     }
-    return 'http://localhost:8000/api/v1';
+
+    return null;
   }
 
   static const String adminMobile = '9999999999';

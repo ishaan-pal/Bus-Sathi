@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/app_api.dart';
 import '../../core/models/route_model.dart';
 import '../../core/models/ticket_model.dart';
 import '../../core/theme/app_colors.dart';
@@ -47,8 +48,8 @@ class _FarePreviewScreenState extends State<FarePreviewScreen> {
   @override
   void initState() {
     super.initState();
-    _ticketRepo = TicketRepository(ApiClient());
-    _busRepo = BusRepository(ApiClient());
+    _ticketRepo = TicketRepository(AppApi.client);
+    _busRepo = BusRepository(AppApi.client);
     _loadFare();
   }
 

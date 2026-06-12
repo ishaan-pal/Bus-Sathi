@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/app_api.dart';
 import '../../core/models/pass_model.dart';
 import '../../core/models/route_model.dart';
 import '../../core/theme/app_colors.dart';
@@ -46,8 +47,8 @@ class _ApplyPassScreenState extends State<ApplyPassScreen> {
   @override
   void initState() {
     super.initState();
-    _passRepo = PassRepository(ApiClient());
-    _busRepo = BusRepository(ApiClient());
+    _passRepo = PassRepository(AppApi.client);
+    _busRepo = BusRepository(AppApi.client);
     _loadRoutes();
   }
 

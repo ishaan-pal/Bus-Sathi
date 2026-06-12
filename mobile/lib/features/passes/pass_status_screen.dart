@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/app_api.dart';
 import '../../core/models/pass_model.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/error_view.dart';
@@ -28,7 +29,7 @@ class _PassStatusScreenState extends State<PassStatusScreen> {
   @override
   void initState() {
     super.initState();
-    _repo = PassRepository(ApiClient());
+    _repo = PassRepository(AppApi.client);
     _load();
   }
 

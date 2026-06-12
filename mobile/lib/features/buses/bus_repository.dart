@@ -7,6 +7,26 @@ class BusRepository {
 
   final ApiClient _api;
 
+  Future<List<String>> getAllStops() async {
+    try {
+      final response = await _api.get<Map<String, dynamic>>('/buses/stops/all');
+      final stops = response.data?['stops'] as List<dynamic>? ?? [];
+      if (stops.isNotEmpty) {
+        return stops.map((e) => e as String).toList();
+      }
+    } on ApiException catch (e) {
+      if (e.statusCode != 404) rethrow;
+    }
+
+    // Backward compatible fallback for older API builds.
+    final routes = await getAllRoutes();
+    final stops = <String>{};
+    for (final route in routes) {
+      stops.addAll(route.stopNames);
+    }
+    return stops.toList()..sort();
+  }
+
   Future<List<RouteModel>> getAllRoutes() async {
     final response = await _api.get<List<dynamic>>('/buses/routes/all');
     return (response.data ?? [])

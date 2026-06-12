@@ -145,6 +145,11 @@ class RouteStopResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class StopsListResponse(BaseModel):
+    stops: list[str]
+    total: int
+
+
 # ── Route Schema ──────────────────────────────────────────────────────────────
 class RouteResponse(BaseModel):
     id: str

@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/app_api.dart';
 import '../../core/config.dart';
 import '../../core/models/bus_model.dart';
 import '../../core/theme/app_colors.dart';
@@ -47,7 +48,7 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _repo = BusRepository(ApiClient());
+    _repo = BusRepository(AppApi.client);
     _load();
     _locationTimer = Timer.periodic(AppConfig.locationPollInterval, (_) {
       _refreshLocation();

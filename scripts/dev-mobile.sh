@@ -1,17 +1,16 @@
 #!/usr/bin/env bash
 # Run the Flutter app on a USB-connected Android device with reliable API access.
-# Uses adb reverse so the phone reaches the WSL backend via localhost (no Wi‑Fi / port-proxy needed).
 set -euo pipefail
 
-cd "$(dirname "$0")/../mobile"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT/mobile"
 
-if ! adb devices | grep -q 'device$'; then
-  echo "No Android device found. Connect via USB and enable USB debugging."
-  exit 1
-fi
+"$ROOT/scripts/setup-adb.sh"
 
-adb reverse tcp:8000 tcp:8000
-echo "adb reverse active: phone localhost:8000 -> PC localhost:8000"
+echo ""
+echo "Starting app (API -> http://127.0.0.1:8000/api/v1)"
+echo "Ensure backend is running:"
+echo "  cd backend && uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
 echo ""
 
 exec flutter run --dart-define=API_HOST=127.0.0.1 "$@"

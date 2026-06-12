@@ -169,6 +169,68 @@ async def seed_routes(db: AsyncSession) -> None:
     print(f"✅ Seeded {len(routes_data)} routes with stops")
 
 
+# ── Seed test network route (15 stations for mobile search testing) ─────────────
+async def seed_test_network_route(db: AsyncSession) -> None:
+    from sqlalchemy import select
+
+    result = await db.execute(
+        select(Route).where(Route.route_number == "HR-06")
+    )
+    if result.scalar_one_or_none():
+        print("⏭️  Test network route HR-06 already exists, skipping")
+        return
+
+    # 15 major Haryana stations on one route so any pair can be searched in dev.
+    test_stops = [
+        ("Chandigarh ISBT", 0, 0.0, 30.7333, 76.7794, 0),
+        ("Panchkula", 1, 8.0, 30.6942, 76.8508, 15),
+        ("Ambala City", 2, 48.0, 30.3782, 76.7767, 75),
+        ("Karnal Bus Stand", 3, 95.0, 29.6857, 76.9905, 130),
+        ("Panipat", 4, 123.0, 29.3909, 76.9635, 165),
+        ("Sonipat", 5, 155.0, 28.9931, 77.0151, 200),
+        ("Rohtak Bus Stand", 6, 195.0, 28.8955, 76.6066, 250),
+        ("Hisar Bus Stand", 7, 260.0, 29.1492, 75.7217, 330),
+        ("Bhiwani", 8, 290.0, 28.7930, 76.1390, 370),
+        ("Gurugram Bus Stand", 9, 340.0, 28.4595, 77.0266, 430),
+        ("Faridabad", 10, 365.0, 28.4089, 77.3178, 460),
+        ("Kurukshetra Bus Stand", 11, 420.0, 29.9695, 76.8783, 530),
+        ("Yamunanagar Bus Stand", 12, 450.0, 30.1290, 77.2674, 565),
+        ("Sirsa", 13, 520.0, 29.5349, 75.0289, 650),
+        ("Rewari", 14, 560.0, 28.1990, 76.6198, 700),
+    ]
+
+    route_id = str(uuid.uuid4())
+    route = Route(
+        id=route_id,
+        route_number="HR-06",
+        name="Haryana State Network (Test)",
+        origin="Chandigarh",
+        destination="Rewari",
+        total_distance_km=560.0,
+        estimated_duration_minutes=700,
+        is_active=True,
+    )
+    db.add(route)
+
+    for stop_name, order, dist, lat, lng, mins in test_stops:
+        db.add(
+            RouteStop(
+                id=str(uuid.uuid4()),
+                route_id=route_id,
+                stop_name=stop_name,
+                stop_order=order,
+                distance_from_origin_km=dist,
+                latitude=lat,
+                longitude=lng,
+                scheduled_minutes_from_origin=mins,
+                is_major_stop=True,
+            )
+        )
+
+    await db.commit()
+    print(f"✅ Seeded test route HR-06 with {len(test_stops)} stations")
+
+
 # ── Seed sample buses ─────────────────────────────────────────────────────────
 async def seed_buses(db: AsyncSession) -> None:
     from sqlalchemy import select
@@ -216,13 +278,99 @@ async def seed_buses(db: AsyncSession) -> None:
     print(f"✅ Seeded {len(buses_data)} buses")
 
 
+# ── Extra test buses (idempotent — safe to re-run) ────────────────────────────
+async def seed_extra_test_buses(db: AsyncSession) -> None:
+    """
+    Add more running buses with live GPS for mobile search & tracking tests.
+    Especially on HR-06 where stations exist but no buses were assigned.
+    """
+    from sqlalchemy import select
+    from datetime import datetime, timezone
+
+    result = await db.execute(select(Route.id, Route.route_number))
+    route_map = {rn: rid for rid, rn in result.fetchall()}
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    # bus_number, reg, type, route, lat, lng, status, driver, conductor, mobile,
+    # current_stop, next_stop, delay
+    extra_buses = [
+        ("HR-29-2001", "HR29PA2001", BusType.EXPRESS,    "HR-06", 30.7100, 76.8150, BusStatus.RUNNING, "Vikram Singh",  "Rohit Mehta",   "9812345801", "Panchkula",       "Ambala City",       0),
+        ("HR-29-2002", "HR29PA2002", BusType.ORDINARY,   "HR-06", 30.4200, 76.7800, BusStatus.RUNNING, "Sunil Hooda",   "Ajay Punia",    "9812345802", "Ambala City",     "Karnal Bus Stand",  0),
+        ("HR-29-2003", "HR29PA2003", BusType.ORDINARY,   "HR-06", 29.7200, 76.9800, BusStatus.RUNNING, "Manoj Yadav",   "Kuldeep Singh", "9812345803", "Karnal Bus Stand","Panipat",           0),
+        ("HR-29-2004", "HR29PA2004", BusType.ORDINARY,   "HR-06", 29.3500, 76.9600, BusStatus.DELAYED, "Harish Kumar",  "Nitin Sharma",  "9812345804", "Panipat",         "Sonipat",           12),
+        ("HR-29-2005", "HR29PA2005", BusType.EXPRESS,    "HR-06", 28.9800, 77.0000, BusStatus.RUNNING, "Pradeep Rana",  "Sandeep Ahlawat","9812345805", "Sonipat",        "Rohtak Bus Stand",  0),
+        ("HR-29-2006", "HR29PA2006", BusType.ORDINARY,   "HR-06", 28.4700, 77.0300, BusStatus.RUNNING, "Gaurav Bhatia", "Anil Chaudhary","9812345806", "Gurugram Bus Stand","Faridabad",       0),
+        ("HR-29-2007", "HR29PA2007", BusType.EXPRESS,    "HR-01", 30.6200, 76.8300, BusStatus.RUNNING, "Balbir Singh",  "Joginder Pal",  "9812345807", "Zirakpur",        "Derabassi",         0),
+        ("HR-29-2008", "HR29PA2008", BusType.ORDINARY,   "HR-01", 30.4800, 76.7900, BusStatus.RUNNING, "Charanjit Singh","Gurmeet Singh","9812345808", "Rajpura",         "Ambala Cantonment", 5),
+        ("HR-29-2009", "HR29PA2009", BusType.ORDINARY,   "HR-04", 28.4900, 77.0800, BusStatus.RUNNING, "Yogesh Kumar",  "Hemant Jain",   "9812345809", "Iffco Chowk",     "Rajiv Chowk Metro", 0),
+        ("HR-29-2010", "HR29PA2010", BusType.SUPER_EXPRESS,"HR-06",30.2500, 76.8700, BusStatus.RUNNING,"Rakesh Dahiya", "Sombir Malik",  "9812345810", "Hisar Bus Stand", "Bhiwani",           0),
+    ]
+
+    added = 0
+    for row in extra_buses:
+        (bus_num, reg, btype, route_num, lat, lng, status, driver, conductor,
+         cond_mobile, current_stop, next_stop, delay) = row
+
+        existing = await db.execute(
+            select(Bus).where(Bus.bus_number == bus_num)
+        )
+        if existing.scalar_one_or_none():
+            continue
+
+        bus = Bus(
+            id=str(uuid.uuid4()),
+            bus_number=bus_num,
+            registration_number=reg,
+            bus_type=btype,
+            route_id=route_map.get(route_num),
+            current_latitude=lat,
+            current_longitude=lng,
+            last_location_update=now,
+            status=status,
+            is_active=True,
+            driver_name=driver,
+            conductor_name=conductor,
+            conductor_mobile=cond_mobile,
+            current_stop=current_stop,
+            next_stop=next_stop,
+            delay_minutes=delay,
+            seating_capacity=52,
+            standing_capacity=20,
+        )
+        db.add(bus)
+        added += 1
+
+    # Promote depot bus on HR-01 so Chandigarh–Ambala searches return more results
+    depot = await db.execute(
+        select(Bus).where(Bus.bus_number == "HR-29-1006")
+    )
+    depot_bus = depot.scalar_one_or_none()
+    if depot_bus and depot_bus.status == BusStatus.DEPOT:
+        depot_bus.status = BusStatus.RUNNING
+        depot_bus.current_latitude = 30.6500
+        depot_bus.current_longitude = 76.8200
+        depot_bus.last_location_update = now
+        depot_bus.current_stop = "Zirakpur"
+        depot_bus.next_stop = "Derabassi"
+        depot_bus.delay_minutes = 0
+
+    await db.commit()
+    if added:
+        print(f"✅ Added {added} extra test buses with live GPS")
+    else:
+        print("⏭️  Extra test buses already present")
+
+
 # ── Main entrypoint ───────────────────────────────────────────────────────────
 async def init_db() -> None:
     await create_tables()
     async with AsyncSessionLocal() as db:
         await seed_admin(db)
         await seed_routes(db)
+        await seed_test_network_route(db)
         await seed_buses(db)
+        await seed_extra_test_buses(db)
     print("🚌 Haryana Roadways DB initialized successfully")
 
 

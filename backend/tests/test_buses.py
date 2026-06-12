@@ -5,6 +5,14 @@ def test_list_routes(client):
     assert len(routes) >= 1
 
 
+def test_list_stops(client):
+    resp = client.get("/api/v1/buses/stops/all")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] >= 10
+    assert "Chandigarh ISBT" in data["stops"]
+
+
 def test_search_buses(client):
     resp = client.post(
         "/api/v1/buses/search",

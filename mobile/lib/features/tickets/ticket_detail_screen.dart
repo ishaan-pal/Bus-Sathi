@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/app_api.dart';
 import '../../core/models/ticket_model.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/error_view.dart';
@@ -29,7 +30,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _repo = TicketRepository(ApiClient());
+    _repo = TicketRepository(AppApi.client);
     _load();
   }
 
