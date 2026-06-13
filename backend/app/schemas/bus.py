@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from typing import Optional
 from app.models.bus import BusStatus, BusType
 
@@ -20,11 +20,18 @@ class BusLocationResponse(BaseModel):
 
 
 class UpdateLocationRequest(BaseModel):
-    bus_id: str
+    bus_id: Optional[str] = None
+    gps_device_id: Optional[str] = None
     latitude: float
     longitude: float
     speed_kmh: Optional[float] = None
     heading: Optional[float] = None
+
+    @model_validator(mode="after")
+    def require_bus_or_device(self):
+        if not self.bus_id and not self.gps_device_id:
+            raise ValueError("Either bus_id or gps_device_id is required")
+        return self
 
     @field_validator("latitude")
     @classmethod
@@ -211,9 +218,13 @@ class AdminBusListItem(BaseModel):
     status: str
     is_active: bool
     route_number: Optional[str]
+    route_id: Optional[str] = None
     current_stop: Optional[str]
     delay_minutes: int
     last_location_update: Optional[str]
+    gps_device_id: Optional[str] = None
+    driver_id: Optional[str] = None
+    conductor_id: Optional[str] = None
     driver_name: Optional[str]
     conductor_name: Optional[str]
 

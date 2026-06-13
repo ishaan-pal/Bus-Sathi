@@ -61,6 +61,18 @@ export const api = {
 
   buses: () => request<BusRow[]>('/buses/admin/all'),
 
+  createBus: (data: CreateBusPayload) =>
+    request<{ success: boolean; bus_id: string; bus_number: string }>(
+      '/buses/admin/create',
+      { method: 'POST', body: JSON.stringify(data) },
+    ),
+
+  updateBus: (id: string, data: UpdateBusPayload) =>
+    request(`/buses/admin/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
   updateBusStatus: (
     id: string,
     data: { status: string; delay_minutes?: number },
@@ -69,6 +81,62 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
+
+  importBusesCsv: (csv_text: string) =>
+    request<CsvImportResult>('/admin/fleet/buses/import', {
+      method: 'POST',
+      body: JSON.stringify({ csv_text }),
+    }),
+
+  depots: () => request<DepotRow[]>('/admin/fleet/depots'),
+
+  drivers: (activeOnly = false) =>
+    request<DriverRow[]>(
+      `/admin/fleet/drivers${activeOnly ? '?active_only=true' : ''}`,
+    ),
+
+  createDriver: (data: CreateDriverPayload) =>
+    request<DriverRow>('/admin/fleet/drivers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateDriver: (id: string, data: Partial<CreateDriverPayload & { is_active?: boolean }>) =>
+    request<DriverRow>(`/admin/fleet/drivers/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  importDriversCsv: (csv_text: string) =>
+    request<CsvImportResult>('/admin/fleet/drivers/import', {
+      method: 'POST',
+      body: JSON.stringify({ csv_text }),
+    }),
+
+  tripAssignments: (assignmentDate?: string) =>
+    request<TripAssignmentRow[]>(
+      `/admin/fleet/assignments${assignmentDate ? `?assignment_date=${assignmentDate}` : ''}`,
+    ),
+
+  createTripAssignment: (data: CreateTripAssignmentPayload) =>
+    request<TripAssignmentRow>('/admin/fleet/assignments', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  deactivateTripAssignment: (id: string) =>
+    request(`/admin/fleet/assignments/${id}/deactivate`, { method: 'PATCH' }),
+
+  trackingKeys: () => request<TrackingKeyRow[]>('/admin/fleet/tracking-keys'),
+
+  createTrackingKey: (data: { label: string; depot_id?: string }) =>
+    request<TrackingKeyCreated>('/admin/fleet/tracking-keys', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  deactivateTrackingKey: (id: string) =>
+    request(`/admin/fleet/tracking-keys/${id}/deactivate`, { method: 'PATCH' }),
 
   tickets: (status?: string) =>
     request<TicketRow[]>(
@@ -128,10 +196,112 @@ export interface BusRow {
   bus_type: string
   status: string
   route_number?: string
+  route_id?: string
   driver_name?: string
   conductor_name?: string
+  driver_id?: string
+  conductor_id?: string
+  gps_device_id?: string
   delay_minutes: number
   is_active: boolean
+}
+
+export interface CreateBusPayload {
+  bus_number: string
+  registration_number: string
+  bus_type: string
+  route_id?: string
+  seating_capacity?: number
+  standing_capacity?: number
+  gps_device_id?: string
+  driver_id?: string
+  conductor_id?: string
+}
+
+export interface UpdateBusPayload {
+  route_id?: string
+  driver_id?: string
+  conductor_id?: string
+  gps_device_id?: string
+}
+
+export interface DepotRow {
+  id: string
+  code: string
+  name: string
+  city?: string
+  is_active: boolean
+}
+
+export interface DriverRow {
+  id: string
+  employee_id: string
+  name: string
+  mobile?: string
+  license_number?: string
+  depot_id?: string
+  depot_code?: string
+  depot_name?: string
+  role: string
+  is_active: boolean
+}
+
+export interface CreateDriverPayload {
+  employee_id: string
+  name: string
+  mobile?: string
+  license_number?: string
+  depot_id?: string
+  role: string
+}
+
+export interface TripAssignmentRow {
+  id: string
+  assignment_date: string
+  bus_id: string
+  bus_number?: string
+  driver_id: string
+  driver_name?: string
+  conductor_id?: string
+  conductor_name?: string
+  route_id: string
+  route_number?: string
+  scheduled_departure?: string
+  is_active: boolean
+  notes?: string
+}
+
+export interface CreateTripAssignmentPayload {
+  assignment_date: string
+  bus_id: string
+  driver_id: string
+  conductor_id?: string
+  route_id: string
+  scheduled_departure?: string
+  notes?: string
+  apply_to_bus?: boolean
+}
+
+export interface TrackingKeyRow {
+  id: string
+  label: string
+  key_prefix: string
+  depot_id?: string
+  depot_code?: string
+  is_active: boolean
+  last_used_at?: string
+  created_at: string
+}
+
+export interface TrackingKeyCreated extends TrackingKeyRow {
+  api_key: string
+}
+
+export interface CsvImportResult {
+  success: boolean
+  created: number
+  updated: number
+  errors: string[]
 }
 
 export interface TicketRow {

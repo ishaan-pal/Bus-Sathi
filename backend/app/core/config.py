@@ -137,8 +137,10 @@ class Settings(BaseSettings):
                 raise ValueError("SECRET_KEY must be set when DEBUG=False")
 
         if not self.DEBUG and not self.BUS_TRACKING_API_KEY:
-            raise ValueError(
-                "BUS_TRACKING_API_KEY must be set when DEBUG=False"
+            warnings.warn(
+                "BUS_TRACKING_API_KEY not set — rely on per-depot tracking keys "
+                "in the tracking_api_keys table for production GPS feeds.",
+                stacklevel=2,
             )
 
         return self

@@ -31,16 +31,19 @@ async def update_bus_location(
     heading: Optional[float],
     redis: aioredis.Redis,
     db: AsyncSession,
+    bus: Optional[Bus] = None,
 ) -> bool:
     """
     Called by GPS device / ETM feed to update bus position.
     Persists to DB and caches in Redis for fast reads.
     """
-    result = await db.execute(select(Bus).where(Bus.id == bus_id))
-    bus = result.scalar_one_or_none()
+    if bus is None:
+        result = await db.execute(select(Bus).where(Bus.id == bus_id))
+        bus = result.scalar_one_or_none()
     if not bus:
         return False
 
+    bus_id = bus.id
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     # Update DB

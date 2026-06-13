@@ -7,7 +7,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('App loads smoke test', (WidgetTester tester) async {
-    await tester.pumpWidget(const HaryanaRoadwaysApp());
+    await tester.pumpWidget(const BusSaathiApp());
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 

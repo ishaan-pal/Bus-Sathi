@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'core/api/api_client.dart';
 import 'core/api/app_api.dart';
@@ -10,19 +12,27 @@ import 'core/theme/app_theme.dart';
 import 'features/auth/auth_cubit.dart';
 import 'features/auth/auth_repository.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const HaryanaRoadwaysApp());
+
+  // Preload primary font so first frame is not blocked by a network fetch.
+  GoogleFonts.config.allowRuntimeFetching = true;
+  await GoogleFonts.pendingFonts([
+    GoogleFonts.poppins(fontWeight: FontWeight.w400),
+    GoogleFonts.poppins(fontWeight: FontWeight.w600),
+  ]);
+
+  runApp(const BusSaathiApp());
 }
 
-class HaryanaRoadwaysApp extends StatefulWidget {
-  const HaryanaRoadwaysApp({super.key});
+class BusSaathiApp extends StatefulWidget {
+  const BusSaathiApp({super.key});
 
   @override
-  State<HaryanaRoadwaysApp> createState() => _HaryanaRoadwaysAppState();
+  State<BusSaathiApp> createState() => _BusSaathiAppState();
 }
 
-class _HaryanaRoadwaysAppState extends State<HaryanaRoadwaysApp> {
+class _BusSaathiAppState extends State<BusSaathiApp> {
   late final ApiClient _apiClient;
   late final AuthRepository _authRepository;
   late final AuthCubit _authCubit;
@@ -41,12 +51,19 @@ class _HaryanaRoadwaysAppState extends State<HaryanaRoadwaysApp> {
       }
     }
     _authRepository = AuthRepository(_apiClient);
-    _authCubit = AuthCubit(_authRepository)..initSession();
+    _authCubit = AuthCubit(_authRepository);
     _appRouter = AppRouter();
+
+    // Defer network work until after the first frame paints.
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      AppApi.stops.initialize();
+      _authCubit.initSession();
+    });
   }
 
   @override
   void dispose() {
+    AppApi.stops.dispose();
     _authCubit.close();
     super.dispose();
   }
@@ -56,7 +73,7 @@ class _HaryanaRoadwaysAppState extends State<HaryanaRoadwaysApp> {
     return BlocProvider.value(
       value: _authCubit,
       child: MaterialApp.router(
-        title: 'Haryana Roadways',
+        title: 'Bus Saathi',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
         routerConfig: _appRouter.router,

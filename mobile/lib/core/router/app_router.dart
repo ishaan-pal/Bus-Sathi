@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 
+import '../../core/models/bus_model.dart';
 import '../../features/auth/aadhaar_verify_screen.dart';
 import '../../features/buses/bus_detail_screen.dart';
 import '../../features/buses/search_results_screen.dart';
@@ -72,13 +73,14 @@ class AppRouter {
       GoRoute(
         path: '/bus/:busId',
         builder: (context, state) {
-          final extra = state.extra as Map<String, String?>? ?? {};
+          final extra = state.extra as Map<String, dynamic>? ?? {};
           return BusDetailScreen(
             busId: state.pathParameters['busId']!,
-            fromStop: extra['from'] ?? '',
-            toStop: extra['to'] ?? '',
-            routeNumber: extra['routeNumber'],
-            routeName: extra['routeName'],
+            fromStop: extra['from'] as String? ?? '',
+            toStop: extra['to'] as String? ?? '',
+            routeNumber: extra['routeNumber'] as String?,
+            routeName: extra['routeName'] as String?,
+            fallbackResult: extra['fallbackResult'] as BusSearchResult?,
           );
         },
       ),

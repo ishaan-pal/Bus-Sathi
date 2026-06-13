@@ -288,3 +288,66 @@ tr:hover td { background: #f7fafc; }
 .modal-actions { display: flex; flex-direction: column; gap: 12px; }
 .reject-section { display: flex; gap: 8px; }
 .reject-section input { flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; }
+
+.header-actions { display: flex; gap: 8px; }
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--navy);
+}
+.form-grid input,
+.form-grid select,
+.form-grid textarea {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+.form-grid .full-width { grid-column: 1 / -1; }
+.form-grid .checkbox-label {
+  flex-direction: row;
+  align-items: center;
+  grid-column: 1 / -1;
+  font-weight: 500;
+}
+.form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+.modal-wide { max-width: 720px; }
+.csv-input {
+  width: 100%;
+  font-family: monospace;
+  font-size: 0.85rem;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+.alert-success { background: #c6f6d5; color: #22543d; }
+.alert-warn { background: #feebc8; color: #7b341e; }
+.key-reveal code {
+  display: block;
+  margin: 8px 0;
+  padding: 10px;
+  background: #edf2f7;
+  border-radius: 6px;
+  word-break: break-all;
+}
+.action-cell { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.toolbar input[type="date"] {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}

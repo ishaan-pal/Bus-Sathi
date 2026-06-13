@@ -20,6 +20,20 @@ class AppConfig {
 
   static String get apiBaseUrl => 'http://$apiHost:8000/api/v1';
 
+  static String get healthUrl => 'http://$apiHost:8000/health';
+
+  /// Guidance shown when the phone cannot reach the dev backend.
+  static String get connectionHelp {
+    const host = String.fromEnvironment('API_HOST');
+    if (host == '127.0.0.1' || host.isEmpty) {
+      return 'USB fix: run ./scripts/dev-mobile.sh from the project root '
+          '(sets up adb reverse and launches the app).';
+    }
+    return 'Wi‑Fi fix (WSL2): on Windows PowerShell as Administrator run '
+        'scripts/forward-api-port.ps1, then use the LAN IP it prints.\n'
+        'USB fix: run ./scripts/dev-mobile.sh instead of a Wi‑Fi IP.';
+  }
+
   /// Returns a user-facing message when [API_HOST] looks wrong, else null.
   static String? apiHostConfigError() {
     const host = String.fromEnvironment('API_HOST');

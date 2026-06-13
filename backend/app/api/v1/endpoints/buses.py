@@ -20,6 +20,11 @@ from app.services.bus_tracking import (
     update_bus_location,
     calculate_eta,
 )
+from app.services.fleet import (
+    resolve_bus_for_location_update,
+    sync_bus_crew_names,
+)
+from app.schemas.fleet import CreateBusRequestExtended, UpdateBusAssignmentRequest
 from app.schemas.bus import (
     BusSearchRequest,
     BusSearchResponse,
@@ -264,6 +269,34 @@ async def get_all_stops(
     return StopsListResponse(stops=stops, total=len(stops))
 
 
+@router.get(
+    "/stops/search",
+    response_model=StopsListResponse,
+    summary="Search bus stops by name prefix or substring",
+)
+async def search_stops(
+    q: str = Query(..., min_length=1, max_length=100, description="Search query"),
+    limit: int = Query(15, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_optional_user),
+):
+    """Return stop names matching the query — for autocomplete in the mobile app."""
+    term = q.strip()
+    result = await db.execute(
+        select(RouteStop.stop_name)
+        .join(Route, RouteStop.route_id == Route.id)
+        .where(
+            Route.is_active == True,
+            RouteStop.stop_name.ilike(f"%{term}%"),
+        )
+        .distinct()
+        .order_by(RouteStop.stop_name)
+        .limit(limit)
+    )
+    stops = [row[0] for row in result.fetchall()]
+    return StopsListResponse(stops=stops, total=len(stops))
+
+
 # ── All Routes ────────────────────────────────────────────────────────────────
 @router.get(
     "/routes/all",
@@ -332,17 +365,30 @@ async def update_location(
 ):
     """
     Called by the bus GPS device or ETM machine feed to push
-    live location updates. Requires X-API-Key header when
-    BUS_TRACKING_API_KEY is set (required in production).
+    live location updates. Requires X-API-Key header matching
+    the legacy env key or a per-depot tracking key.
+    Accepts either bus_id or gps_device_id (IMEI).
     """
-    success = await update_bus_location(
+    bus = await resolve_bus_for_location_update(
+        db=db,
         bus_id=body.bus_id,
+        gps_device_id=body.gps_device_id,
+    )
+    if not bus:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Bus not found for the given bus_id or gps_device_id",
+        )
+
+    success = await update_bus_location(
+        bus_id=bus.id,
         latitude=body.latitude,
         longitude=body.longitude,
         speed_kmh=body.speed_kmh,
         heading=body.heading,
         redis=redis,
         db=db,
+        bus=bus,
     )
     if not success:
         raise HTTPException(
@@ -389,6 +435,7 @@ async def admin_list_buses(
                 bus_type=bus.bus_type.value,
                 status=bus.status.value,
                 is_active=bus.is_active,
+                route_id=bus.route_id,
                 route_number=route_number,
                 current_stop=bus.current_stop,
                 delay_minutes=bus.delay_minutes,
@@ -396,6 +443,9 @@ async def admin_list_buses(
                     bus.last_location_update.isoformat()
                     if bus.last_location_update else None
                 ),
+                gps_device_id=bus.gps_device_id,
+                driver_id=bus.driver_id,
+                conductor_id=bus.conductor_id,
                 driver_name=bus.driver_name,
                 conductor_name=bus.conductor_name,
             )
@@ -409,12 +459,23 @@ async def admin_list_buses(
     summary="[Admin] Add a new bus",
 )
 async def admin_create_bus(
-    body: CreateBusRequest,
+    body: CreateBusRequestExtended,
     db: AsyncSession = Depends(get_db),
     admin=Depends(get_current_admin),
 ):
     """Admin endpoint to register a new bus."""
     import uuid
+
+    if body.gps_device_id:
+        existing_gps = await db.execute(
+            select(Bus).where(Bus.gps_device_id == body.gps_device_id)
+        )
+        if existing_gps.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="GPS device ID already assigned to another bus",
+            )
+
     bus = Bus(
         id=str(uuid.uuid4()),
         bus_number=body.bus_number,
@@ -423,6 +484,7 @@ async def admin_create_bus(
         route_id=body.route_id,
         seating_capacity=body.seating_capacity,
         standing_capacity=body.standing_capacity,
+        gps_device_id=body.gps_device_id,
         driver_name=body.driver_name,
         conductor_name=body.conductor_name,
         conductor_mobile=body.conductor_mobile,
@@ -430,9 +492,81 @@ async def admin_create_bus(
         is_active=True,
     )
     db.add(bus)
+    await db.flush()
+
+    await sync_bus_crew_names(
+        db,
+        bus,
+        driver_id=body.driver_id,
+        conductor_id=body.conductor_id,
+    )
+    if body.driver_id is None and body.driver_name:
+        bus.driver_name = body.driver_name
+    if body.conductor_id is None:
+        if body.conductor_name:
+            bus.conductor_name = body.conductor_name
+        if body.conductor_mobile:
+            bus.conductor_mobile = body.conductor_mobile
+
     await db.commit()
     await db.refresh(bus)
     return {"success": True, "bus_id": bus.id, "bus_number": bus.bus_number}
+
+
+@router.patch(
+    "/admin/{bus_id}",
+    summary="[Admin] Update bus assignment and GPS device",
+)
+async def admin_update_bus(
+    bus_id: str,
+    body: UpdateBusAssignmentRequest,
+    db: AsyncSession = Depends(get_db),
+    admin=Depends(get_current_admin),
+):
+    """Update route, crew assignment, or GPS device on a bus."""
+    result = await db.execute(select(Bus).where(Bus.id == bus_id))
+    bus = result.scalar_one_or_none()
+    if not bus:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Bus not found",
+        )
+
+    if body.gps_device_id is not None:
+        if body.gps_device_id:
+            existing_gps = await db.execute(
+                select(Bus).where(
+                    Bus.gps_device_id == body.gps_device_id,
+                    Bus.id != bus_id,
+                )
+            )
+            if existing_gps.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="GPS device ID already assigned to another bus",
+                )
+        bus.gps_device_id = body.gps_device_id
+
+    if body.route_id is not None:
+        bus.route_id = body.route_id or None
+
+    if body.driver_id is not None or body.conductor_id is not None:
+        await sync_bus_crew_names(
+            db,
+            bus,
+            driver_id=body.driver_id,
+            conductor_id=body.conductor_id,
+        )
+    else:
+        if body.driver_name is not None:
+            bus.driver_name = body.driver_name
+        if body.conductor_name is not None:
+            bus.conductor_name = body.conductor_name
+        if body.conductor_mobile is not None:
+            bus.conductor_mobile = body.conductor_mobile
+
+    await db.commit()
+    return {"success": True, "message": "Bus updated"}
 
 
 # ── Admin: Update Bus Status ──────────────────────────────────────────────────

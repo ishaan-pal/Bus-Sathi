@@ -11,6 +11,7 @@ import '../../core/api/app_api.dart';
 import '../../core/config.dart';
 import '../../core/models/bus_model.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/safe_state.dart';
 import '../../core/widgets/error_view.dart';
 import '../../core/widgets/hr_app_bar.dart';
 import '../../core/widgets/info_chip.dart';
@@ -25,6 +26,7 @@ class BusDetailScreen extends StatefulWidget {
     required this.toStop,
     this.routeNumber,
     this.routeName,
+    this.fallbackResult,
   });
 
   final String busId;
@@ -32,27 +34,34 @@ class BusDetailScreen extends StatefulWidget {
   final String toStop;
   final String? routeNumber;
   final String? routeName;
+  final BusSearchResult? fallbackResult;
 
   @override
   State<BusDetailScreen> createState() => _BusDetailScreenState();
 }
 
-class _BusDetailScreenState extends State<BusDetailScreen> {
+class _BusDetailScreenState extends State<BusDetailScreen>
+    with AsyncRequestGuard, SafeSetState {
   late final BusRepository _repo;
   BusDetailModel? _bus;
   BusLocationModel? _location;
   bool _loading = true;
   String? _error;
+  bool _isDemo = false;
   Timer? _locationTimer;
 
   @override
   void initState() {
     super.initState();
     _repo = BusRepository(AppApi.client);
+    _isDemo =
+        widget.busId.startsWith('demo-') || widget.fallbackResult != null;
     _load();
-    _locationTimer = Timer.periodic(AppConfig.locationPollInterval, (_) {
-      _refreshLocation();
-    });
+    if (!_isDemo) {
+      _locationTimer = Timer.periodic(AppConfig.locationPollInterval, (_) {
+        _refreshLocation();
+      });
+    }
   }
 
   @override
@@ -62,29 +71,53 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
   }
 
   Future<void> _load() async {
-    setState(() {
+    final generation = beginRequest();
+
+    if (_isDemo && widget.fallbackResult != null) {
+      if (!isCurrentRequest(generation)) return;
+      safeSetState(() {
+        _bus = BusDetailModel.fromSearchResult(widget.fallbackResult!);
+        _location = widget.fallbackResult!.location;
+        _loading = false;
+        _error = null;
+      });
+      return;
+    }
+
+    safeSetState(() {
       _loading = true;
       _error = null;
     });
+
     try {
       final bus = await _repo.getBusDetail(widget.busId);
-      setState(() {
+      if (!isCurrentRequest(generation)) return;
+      safeSetState(() {
         _bus = bus;
         _location = bus.location;
         _loading = false;
       });
     } on ApiException catch (e) {
-      setState(() {
+      if (!isCurrentRequest(generation)) return;
+      safeSetState(() {
         _error = e.message;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!isCurrentRequest(generation)) return;
+      safeSetState(() {
+        _error = 'Something went wrong loading bus details.';
         _loading = false;
       });
     }
   }
 
   Future<void> _refreshLocation() async {
+    if (_isDemo || !mounted) return;
     try {
       final loc = await _repo.getBusLocation(widget.busId);
-      if (mounted) setState(() => _location = loc);
+      if (!mounted) return;
+      safeSetState(() => _location = loc);
     } catch (_) {}
   }
 
@@ -115,6 +148,20 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
           else if (_bus != null)
             Column(
               children: [
+                if (_isDemo)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    color: AppColors.saffron.withValues(alpha: 0.15),
+                    child: Text(
+                      'Demo bus — connect to backend for live tracking',
+                      style: GoogleFonts.poppins(fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
                 SizedBox(
                   height: 220,
                   child: _buildMap(),
@@ -165,9 +212,9 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
                       ],
                       const SizedBox(height: 24),
                       ElevatedButton.icon(
-                        onPressed: _bookTicket,
+                        onPressed: _isDemo ? null : _bookTicket,
                         icon: const Icon(Icons.confirmation_number),
-                        label: const Text('Book Ticket'),
+                        label: Text(_isDemo ? 'Booking needs server' : 'Book Ticket'),
                       ),
                     ],
                   ),
@@ -185,7 +232,12 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
     if (loc == null) {
       return Container(
         color: Colors.grey.shade200,
-        child: const Center(child: Text('Location unavailable')),
+        child: Center(
+          child: Text(
+            _isDemo ? 'Map unavailable in demo mode' : 'Location unavailable',
+            style: GoogleFonts.poppins(color: AppColors.textSecondary),
+          ),
+        ),
       );
     }
     final point = LatLng(loc.latitude, loc.longitude);

@@ -5,6 +5,9 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import UsersPage from './pages/UsersPage'
 import BusesPage from './pages/BusesPage'
+import DriversPage from './pages/DriversPage'
+import TripAssignmentsPage from './pages/TripAssignmentsPage'
+import TrackingKeysPage from './pages/TrackingKeysPage'
 import TicketsPage from './pages/TicketsPage'
 import PassesPage from './pages/PassesPage'
 import RoutesPage from './pages/RoutesPage'
@@ -32,6 +35,9 @@ function AppRoutes() {
         <Route index element={<DashboardPage />} />
         <Route path="monitor" element={<LiveMonitorPage />} />
         <Route path="buses" element={<BusesPage />} />
+        <Route path="drivers" element={<DriversPage />} />
+        <Route path="assignments" element={<TripAssignmentsPage />} />
+        <Route path="tracking-keys" element={<TrackingKeysPage />} />
         <Route path="routes" element={<RoutesPage />} />
         <Route path="tickets" element={<TicketsPage />} />
         <Route path="passes" element={<PassesPage />} />

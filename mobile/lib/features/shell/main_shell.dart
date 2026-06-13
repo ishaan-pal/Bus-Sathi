@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/api/app_api.dart';
 import '../../core/theme/app_colors.dart';
 import '../home/home_screen.dart';
 import '../passes/active_pass_screen.dart';
@@ -56,7 +57,9 @@ class _MainShellState extends State<MainShell> {
 class HomeBranch extends StatelessWidget {
   const HomeBranch({super.key});
   @override
-  Widget build(BuildContext context) => const HomeScreen();
+  Widget build(BuildContext context) {
+    return HomeScreen(stopsService: AppApi.stops);
+  }
 }
 
 class TicketsBranch extends StatelessWidget {

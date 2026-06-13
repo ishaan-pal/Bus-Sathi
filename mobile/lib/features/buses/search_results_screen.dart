@@ -7,6 +7,7 @@ import '../../core/api/app_api.dart';
 import '../../core/demo_buses.dart';
 import '../../core/models/bus_model.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/safe_state.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/error_view.dart';
 import '../../core/widgets/hr_app_bar.dart';
@@ -28,7 +29,8 @@ class SearchResultsScreen extends StatefulWidget {
   State<SearchResultsScreen> createState() => _SearchResultsScreenState();
 }
 
-class _SearchResultsScreenState extends State<SearchResultsScreen> {
+class _SearchResultsScreenState extends State<SearchResultsScreen>
+    with AsyncRequestGuard, SafeSetState {
   late final BusRepository _repo;
   List<BusSearchResult> _buses = [];
   bool _loading = true;
@@ -43,25 +45,28 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   }
 
   Future<void> _search() async {
-    setState(() {
+    final generation = beginRequest();
+    safeSetState(() {
       _loading = true;
       _error = null;
     });
+
     try {
       final results = await _repo.searchBuses(
         boardingStop: widget.fromStop,
         destinationStop: widget.toStop,
       );
-      setState(() {
+      if (!isCurrentRequest(generation)) return;
+      safeSetState(() {
         _buses = results;
         _loading = false;
         _usingDemoBuses = false;
         _error = null;
       });
     } on ApiException catch (e) {
-      final isConnectionIssue = e.statusCode == null;
-      if (isConnectionIssue) {
-        setState(() {
+      if (!isCurrentRequest(generation)) return;
+      if (e.isConnectivityError) {
+        safeSetState(() {
           _buses = DemoBuses.forRoute(
             fromStop: widget.fromStop,
             toStop: widget.toStop,
@@ -72,21 +77,28 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            const SnackBar(
               content: Text(
-                'Server unreachable. Showing demo buses. ${e.message}',
+                'Server unreachable — showing demo buses. '
+                'Run ./scripts/dev-mobile.sh for USB dev.',
               ),
-              duration: const Duration(seconds: 5),
+              duration: Duration(seconds: 5),
             ),
           );
         }
       } else {
-        setState(() {
+        safeSetState(() {
           _error = e.message;
           _loading = false;
           _usingDemoBuses = false;
         });
       }
+    } catch (_) {
+      if (!isCurrentRequest(generation)) return;
+      safeSetState(() {
+        _error = 'Search failed. Please try again.';
+        _loading = false;
+      });
     }
   }
 
@@ -137,7 +149,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   color: AppColors.saffron.withValues(alpha: 0.15),
                   child: Text(
-                    'Demo buses — connect to backend for live results',
+                    'Demo buses — run ./scripts/dev-mobile.sh for live data',
                     style: GoogleFonts.poppins(fontSize: 12),
                     textAlign: TextAlign.center,
                   ),
@@ -154,8 +166,10 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                         : ListView.builder(
                             padding: const EdgeInsets.all(16),
                             itemCount: _buses.length,
-                            itemBuilder: (context, index) =>
-                                _BusCard(bus: _buses[index]),
+                            itemBuilder: (context, index) => _BusCard(
+                              bus: _buses[index],
+                              isDemo: _usingDemoBuses,
+                            ),
                           ),
               ),
             ],
@@ -168,9 +182,10 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
 }
 
 class _BusCard extends StatelessWidget {
-  const _BusCard({required this.bus});
+  const _BusCard({required this.bus, required this.isDemo});
 
   final BusSearchResult bus;
+  final bool isDemo;
 
   @override
   Widget build(BuildContext context) {
@@ -183,6 +198,7 @@ class _BusCard extends StatelessWidget {
           'to': bus.destinationStop,
           'routeNumber': bus.routeNumber,
           'routeName': bus.routeName,
+          if (isDemo) 'fallbackResult': bus,
         }),
         child: Padding(
           padding: const EdgeInsets.all(16),

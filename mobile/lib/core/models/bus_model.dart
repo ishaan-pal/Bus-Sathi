@@ -163,6 +163,30 @@ class BusDetailModel extends Equatable {
     required this.isLocationStale,
   });
 
+  factory BusDetailModel.fromSearchResult(BusSearchResult result) {
+    return BusDetailModel(
+      busId: result.busId,
+      busNumber: result.busNumber,
+      registrationNumber: '',
+      busType: result.busType,
+      status: result.status,
+      delayMinutes: result.delayMinutes,
+      etaDisplay: result.etaDisplay,
+      currentStop: result.currentStop,
+      nextStop: result.nextStop,
+      distanceCoveredKm: 0,
+      conductorName: result.conductorName,
+      conductorMobile: result.conductorMobile,
+      seatingCapacity: result.seatingCapacity,
+      standingCapacity: result.standingCapacity,
+      trackingSource: 'demo',
+      routeNumber: result.routeNumber,
+      routeName: result.routeName,
+      location: result.location,
+      isLocationStale: result.location?.isStale ?? true,
+    );
+  }
+
   factory BusDetailModel.fromJson(Map<String, dynamic> json) {
     return BusDetailModel(
       busId: json['bus_id'] as String,

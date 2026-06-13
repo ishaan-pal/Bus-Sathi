@@ -4,10 +4,13 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../config.dart';
 
 class ApiException implements Exception {
-  ApiException(this.message, {this.statusCode});
+  ApiException(this.message, {this.statusCode, this.isTimeout = false});
 
   final String message;
   final int? statusCode;
+  final bool isTimeout;
+
+  bool get isConnectivityError => statusCode == null;
 
   @override
   String toString() => message;
@@ -19,8 +22,8 @@ class ApiClient {
     _dio = Dio(
       BaseOptions(
         baseUrl: AppConfig.apiBaseUrl,
-        connectTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(seconds: 15),
+        connectTimeout: const Duration(seconds: 8),
+        receiveTimeout: const Duration(seconds: 20),
         headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
       ),
     );
@@ -100,7 +103,12 @@ class ApiClient {
       return await _dio.get<T>(path,
           queryParameters: queryParameters, options: options);
     } on DioException catch (e) {
-      throw ApiException(_extractMessage(e), statusCode: e.response?.statusCode);
+      throw ApiException(
+        _extractMessage(e),
+        statusCode: e.response?.statusCode,
+        isTimeout: e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout,
+      );
     }
   }
 
@@ -114,7 +122,12 @@ class ApiClient {
       return await _dio.post<T>(path,
           data: data, queryParameters: queryParameters, options: options);
     } on DioException catch (e) {
-      throw ApiException(_extractMessage(e), statusCode: e.response?.statusCode);
+      throw ApiException(
+        _extractMessage(e),
+        statusCode: e.response?.statusCode,
+        isTimeout: e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout,
+      );
     }
   }
 
@@ -129,7 +142,12 @@ class ApiClient {
         options: Options(contentType: 'multipart/form-data'),
       );
     } on DioException catch (e) {
-      throw ApiException(_extractMessage(e), statusCode: e.response?.statusCode);
+      throw ApiException(
+        _extractMessage(e),
+        statusCode: e.response?.statusCode,
+        isTimeout: e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout,
+      );
     }
   }
 
@@ -152,15 +170,11 @@ class ApiClient {
     }
     final server = AppConfig.apiBaseUrl;
     if (error.type == DioExceptionType.connectionError) {
-      return 'Unable to connect to $server. '
-          'USB: run scripts/dev-mobile.sh. '
-          'Wi‑Fi: same network + scripts/forward-api-port.ps1 (WSL2).';
+      return 'Cannot reach the server at $server.\n\n${AppConfig.connectionHelp}';
     }
     if (error.type == DioExceptionType.connectionTimeout ||
         error.type == DioExceptionType.receiveTimeout) {
-      return 'Request timed out reaching $server. '
-          'USB: run scripts/dev-mobile.sh. '
-          'Wi‑Fi: run scripts/forward-api-port.ps1 as Administrator.';
+      return 'Server timed out at $server.\n\n${AppConfig.connectionHelp}';
     }
     return error.message ?? 'Something went wrong';
   }

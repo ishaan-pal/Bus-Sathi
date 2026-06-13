@@ -94,9 +94,26 @@ class Bus(Base):
     )
 
     # ── Driver / Conductor ───────────────────────────────
+    driver_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("drivers.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    conductor_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("drivers.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     driver_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     conductor_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     conductor_mobile: Mapped[str | None] = mapped_column(String(10), nullable=True)
+
+    # ── GPS Device ───────────────────────────────────────
+    gps_device_id: Mapped[str | None] = mapped_column(
+        String(50), unique=True, nullable=True, index=True
+    )
 
     # ── Tracking Source ──────────────────────────────────
     # "gps" = dedicated GPS device, "etm" = ETM machine feed
@@ -107,6 +124,15 @@ class Bus(Base):
     # ── Relationships ─────────────────────────────────────
     route: Mapped["Route | None"] = relationship(     # noqa: F821
         "Route", back_populates="buses"
+    )
+    assigned_driver: Mapped["Driver | None"] = relationship(  # noqa: F821
+        "Driver", foreign_keys=[driver_id], lazy="select"
+    )
+    assigned_conductor: Mapped["Driver | None"] = relationship(  # noqa: F821
+        "Driver", foreign_keys=[conductor_id], lazy="select"
+    )
+    trip_assignments: Mapped[list["TripAssignment"]] = relationship(  # noqa: F821
+        "TripAssignment", back_populates="bus", lazy="select"
     )
     tickets: Mapped[list["Ticket"]] = relationship(   # noqa: F821
         "Ticket", back_populates="bus", lazy="select"

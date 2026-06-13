@@ -11,6 +11,10 @@ from app.models.route import Route, RouteStop
 from app.models.bus import Bus, BusType, BusStatus
 from app.models.ticket import Ticket
 from app.models.pass_ import BusPass
+from app.models.depot import Depot
+from app.models.driver import Driver, StaffRole
+from app.models.trip_assignment import TripAssignment  # noqa: F401 — register model with Base
+from app.models.tracking_api_key import TrackingApiKey
 
 
 # ── Create all tables ─────────────────────────────────────────────────────────
@@ -18,6 +22,31 @@ async def create_tables() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     print("✅ Tables created successfully")
+
+
+async def migrate_schema() -> None:
+    """Add new columns to existing tables (create_all does not alter tables)."""
+    migrations = [
+        "ALTER TABLE buses ADD COLUMN IF NOT EXISTS gps_device_id VARCHAR(50)",
+        "ALTER TABLE buses ADD COLUMN IF NOT EXISTS driver_id VARCHAR(36)",
+        "ALTER TABLE buses ADD COLUMN IF NOT EXISTS conductor_id VARCHAR(36)",
+        (
+            "CREATE UNIQUE INDEX IF NOT EXISTS ix_buses_gps_device_id "
+            "ON buses (gps_device_id) WHERE gps_device_id IS NOT NULL"
+        ),
+        (
+            "CREATE INDEX IF NOT EXISTS ix_buses_driver_id "
+            "ON buses (driver_id)"
+        ),
+        (
+            "CREATE INDEX IF NOT EXISTS ix_buses_conductor_id "
+            "ON buses (conductor_id)"
+        ),
+    ]
+    async with engine.begin() as conn:
+        for stmt in migrations:
+            await conn.execute(text(stmt))
+    print("✅ Schema migrations applied")
 
 
 # ── Seed admin user ───────────────────────────────────────────────────────────
@@ -278,6 +307,150 @@ async def seed_buses(db: AsyncSession) -> None:
     print(f"✅ Seeded {len(buses_data)} buses")
 
 
+async def seed_depots(db: AsyncSession) -> None:
+    from sqlalchemy import select
+
+    result = await db.execute(select(Depot).limit(1))
+    if result.scalar_one_or_none():
+        print("⏭️  Depots already seeded, skipping")
+        return
+
+    depots_data = [
+        ("CHD", "Chandigarh Depot", "Chandigarh"),
+        ("AMB", "Ambala Depot", "Ambala"),
+        ("KRL", "Karnal Depot", "Karnal"),
+        ("HIS", "Hisar Depot", "Hisar"),
+        ("GGN", "Gurugram Depot", "Gurugram"),
+        ("YAM", "Yamunanagar Depot", "Yamunanagar"),
+    ]
+    for code, name, city in depots_data:
+        db.add(
+            Depot(
+                id=str(uuid.uuid4()),
+                code=code,
+                name=name,
+                city=city,
+                is_active=True,
+            )
+        )
+    await db.commit()
+    print(f"✅ Seeded {len(depots_data)} depots")
+
+
+async def seed_drivers(db: AsyncSession) -> None:
+    from sqlalchemy import select
+
+    result = await db.execute(select(Driver).limit(1))
+    if result.scalar_one_or_none():
+        print("⏭️  Drivers already seeded, skipping")
+        return
+
+    depot_result = await db.execute(select(Depot))
+    depot_map = {d.code: d.id for d in depot_result.scalars().all()}
+
+    drivers_data = [
+        ("DRV-1001", "Rajesh Kumar", "9812345671", "HR-DL-1001", "CHD", StaffRole.DRIVER),
+        ("DRV-1002", "Amit Sharma", "9812345672", "HR-DL-1002", "KRL", StaffRole.DRIVER),
+        ("DRV-1003", "Ravi Verma", "9812345673", "HR-DL-1003", "HIS", StaffRole.DRIVER),
+        ("DRV-1004", "Sanjay Yadav", "9812345674", "HR-DL-1004", "GGN", StaffRole.DRIVER),
+        ("DRV-1005", "Naresh Kumar", "9812345675", "HR-DL-1005", "YAM", StaffRole.DRIVER),
+        ("DRV-1006", "Dinesh Saini", "9812345676", "HR-DL-1006", "CHD", StaffRole.DRIVER),
+        ("CON-2001", "Suresh Singh", "9812345801", None, "CHD", StaffRole.CONDUCTOR),
+        ("CON-2002", "Vikram Das", "9812345802", None, "KRL", StaffRole.CONDUCTOR),
+        ("CON-2003", "Deepak Nain", "9812345803", None, "HIS", StaffRole.CONDUCTOR),
+        ("CON-2004", "Mohit Hooda", "9812345804", None, "GGN", StaffRole.CONDUCTOR),
+        ("CON-2005", "Pawan Kalyan", "9812345805", None, "YAM", StaffRole.CONDUCTOR),
+        ("CON-2006", "Ramesh Gupta", "9812345806", None, "CHD", StaffRole.CONDUCTOR),
+    ]
+
+    driver_ids = {}
+    for emp_id, name, mobile, license_no, depot_code, role in drivers_data:
+        driver_id = str(uuid.uuid4())
+        driver_ids[emp_id] = driver_id
+        db.add(
+            Driver(
+                id=driver_id,
+                employee_id=emp_id,
+                name=name,
+                mobile=mobile,
+                license_number=license_no,
+                depot_id=depot_map.get(depot_code),
+                role=role,
+                is_active=True,
+            )
+        )
+    await db.commit()
+    print(f"✅ Seeded {len(drivers_data)} drivers/conductors")
+
+
+async def link_buses_to_staff(db: AsyncSession) -> None:
+    """Attach GPS device IDs and staff FKs to seeded buses."""
+    from sqlalchemy import select
+
+    driver_result = await db.execute(select(Driver))
+    drivers_by_name = {d.name: d for d in driver_result.scalars().all()}
+
+    bus_result = await db.execute(select(Bus))
+    buses = bus_result.scalars().all()
+    updated = 0
+    for idx, bus in enumerate(buses, start=1):
+        changed = False
+        if not bus.gps_device_id:
+            bus.gps_device_id = f"IMEI-DEV-{bus.bus_number.replace('-', '')}"
+            changed = True
+        if bus.driver_name and not bus.driver_id:
+            driver = drivers_by_name.get(bus.driver_name)
+            if driver:
+                bus.driver_id = driver.id
+                changed = True
+        if bus.conductor_name and not bus.conductor_id:
+            conductor = drivers_by_name.get(bus.conductor_name)
+            if conductor:
+                bus.conductor_id = conductor.id
+                if not bus.conductor_mobile and conductor.mobile:
+                    bus.conductor_mobile = conductor.mobile
+                changed = True
+        if changed:
+            updated += 1
+
+    if updated:
+        await db.commit()
+        print(f"✅ Linked {updated} buses to GPS devices and staff records")
+
+
+async def seed_dev_tracking_key(db: AsyncSession) -> None:
+    """Seed a dev tracking API key when DEBUG is enabled."""
+    from sqlalchemy import select
+    from app.core.config import settings
+    from app.services.fleet import hash_api_key
+
+    if not settings.DEBUG:
+        return
+
+    result = await db.execute(select(TrackingApiKey).limit(1))
+    if result.scalar_one_or_none():
+        return
+
+    raw_key = "hr_dev_tracking_key_change_in_production"
+    depot_result = await db.execute(
+        select(Depot).where(Depot.code == "CHD")
+    )
+    depot = depot_result.scalar_one_or_none()
+
+    db.add(
+        TrackingApiKey(
+            id=str(uuid.uuid4()),
+            label="Dev GPS Vendor",
+            key_prefix=raw_key[:12],
+            key_hash=hash_api_key(raw_key),
+            depot_id=depot.id if depot else None,
+            is_active=True,
+        )
+    )
+    await db.commit()
+    print("✅ Seeded dev tracking API key (prefix: hr_dev_trac…)")
+
+
 # ── Extra test buses (idempotent — safe to re-run) ────────────────────────────
 async def seed_extra_test_buses(db: AsyncSession) -> None:
     """
@@ -365,12 +538,17 @@ async def seed_extra_test_buses(db: AsyncSession) -> None:
 # ── Main entrypoint ───────────────────────────────────────────────────────────
 async def init_db() -> None:
     await create_tables()
+    await migrate_schema()
     async with AsyncSessionLocal() as db:
         await seed_admin(db)
         await seed_routes(db)
         await seed_test_network_route(db)
+        await seed_depots(db)
         await seed_buses(db)
         await seed_extra_test_buses(db)
+        await seed_drivers(db)
+        await link_buses_to_staff(db)
+        await seed_dev_tracking_key(db)
     print("🚌 Haryana Roadways DB initialized successfully")
 
 

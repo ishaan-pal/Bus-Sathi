@@ -5,6 +5,7 @@ import '../../core/api/api_client.dart';
 import '../../core/api/app_api.dart';
 import '../../core/models/ticket_model.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/safe_state.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/error_view.dart';
 import '../../core/widgets/hr_app_bar.dart';
@@ -18,7 +19,8 @@ class ActiveTicketsScreen extends StatefulWidget {
   State<ActiveTicketsScreen> createState() => _ActiveTicketsScreenState();
 }
 
-class _ActiveTicketsScreenState extends State<ActiveTicketsScreen> {
+class _ActiveTicketsScreenState extends State<ActiveTicketsScreen>
+    with AsyncRequestGuard, SafeSetState {
   late final TicketRepository _repo;
   List<ActiveTicketModel> _tickets = [];
   bool _loading = true;
@@ -32,19 +34,29 @@ class _ActiveTicketsScreenState extends State<ActiveTicketsScreen> {
   }
 
   Future<void> _load() async {
-    setState(() {
+    final generation = beginRequest();
+    safeSetState(() {
       _loading = true;
       _error = null;
     });
+
     try {
       final tickets = await _repo.getActiveTickets();
-      setState(() {
+      if (!isCurrentRequest(generation)) return;
+      safeSetState(() {
         _tickets = tickets;
         _loading = false;
       });
     } on ApiException catch (e) {
-      setState(() {
+      if (!isCurrentRequest(generation)) return;
+      safeSetState(() {
         _error = e.message;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!isCurrentRequest(generation)) return;
+      safeSetState(() {
+        _error = 'Could not load tickets.';
         _loading = false;
       });
     }
@@ -60,10 +72,12 @@ class _ActiveTicketsScreenState extends State<ActiveTicketsScreen> {
             onRefresh: _load,
             child: _error != null
                 ? ListView(
-                    children: [SizedBox(
-                      height: MediaQuery.of(context).size.height * 0.6,
-                      child: ErrorView(message: _error!, onRetry: _load),
-                    )],
+                    children: [
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.6,
+                        child: ErrorView(message: _error!, onRetry: _load),
+                      ),
+                    ],
                   )
                 : _tickets.isEmpty && !_loading
                     ? ListView(

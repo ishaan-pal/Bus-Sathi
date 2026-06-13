@@ -6,6 +6,7 @@ import '../../core/api/api_client.dart';
 import '../../core/api/app_api.dart';
 import '../../core/models/pass_model.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/safe_state.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/error_view.dart';
 import '../../core/widgets/hr_app_bar.dart';
@@ -20,7 +21,8 @@ class ActivePassScreen extends StatefulWidget {
   State<ActivePassScreen> createState() => _ActivePassScreenState();
 }
 
-class _ActivePassScreenState extends State<ActivePassScreen> {
+class _ActivePassScreenState extends State<ActivePassScreen>
+    with AsyncRequestGuard, SafeSetState {
   late final PassRepository _repo;
   ActivePassModel? _pass;
   List<PassListItemModel> _history = [];
@@ -36,40 +38,60 @@ class _ActivePassScreenState extends State<ActivePassScreen> {
   }
 
   Future<void> _load() async {
-    setState(() {
+    final generation = beginRequest();
+    safeSetState(() {
       _loading = true;
       _error = null;
       _noActivePass = false;
     });
+
     try {
       final pass = await _repo.getActivePass();
-      final history = await _repo.getPassHistory();
-      setState(() {
+      if (!isCurrentRequest(generation)) return;
+
+      List<PassListItemModel> history = [];
+      try {
+        history = await _repo.getPassHistory();
+      } catch (_) {}
+
+      if (!isCurrentRequest(generation)) return;
+      safeSetState(() {
         _pass = pass;
         _history = history;
         _loading = false;
       });
     } on ApiException catch (e) {
+      if (!isCurrentRequest(generation)) return;
+
       if (e.statusCode == 404) {
+        List<PassListItemModel> history = [];
         try {
-          final history = await _repo.getPassHistory();
-          setState(() {
-            _noActivePass = true;
-            _history = history;
-            _loading = false;
-          });
-        } catch (err) {
-          setState(() {
-            _noActivePass = true;
-            _loading = false;
-          });
-        }
+          history = await _repo.getPassHistory();
+        } catch (_) {}
+
+        if (!isCurrentRequest(generation)) return;
+        safeSetState(() {
+          _noActivePass = true;
+          _history = history;
+          _loading = false;
+        });
+      } else if (e.isConnectivityError) {
+        safeSetState(() {
+          _error = e.message;
+          _loading = false;
+        });
       } else {
-        setState(() {
+        safeSetState(() {
           _error = e.message;
           _loading = false;
         });
       }
+    } catch (_) {
+      if (!isCurrentRequest(generation)) return;
+      safeSetState(() {
+        _error = 'Could not load pass information.';
+        _loading = false;
+      });
     }
   }
 

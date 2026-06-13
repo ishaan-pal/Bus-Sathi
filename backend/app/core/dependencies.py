@@ -121,24 +121,37 @@ async def require_aadhaar_verified(
 # ── Bus GPS device API key ────────────────────────────────────────────────────
 async def verify_bus_tracking_api_key(
     x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    db: AsyncSession = Depends(get_db),
 ) -> None:
     """
-    Require X-API-Key header when BUS_TRACKING_API_KEY is configured.
-    Skipped in DEBUG mode when no key is configured (local development).
+    Require X-API-Key header matching the legacy env key or a DB tracking key.
+    Skipped in DEBUG mode when no keys are configured (local development).
     """
-    expected = settings.BUS_TRACKING_API_KEY
-    if not expected:
-        if settings.DEBUG:
+    from app.services.fleet import verify_tracking_api_key
+
+    if not x_api_key:
+        if settings.DEBUG and not settings.BUS_TRACKING_API_KEY:
             return
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Bus tracking API key not configured",
-        )
-    if x_api_key != expected:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing API key",
         )
+
+    matched = await verify_tracking_api_key(
+        raw_key=x_api_key,
+        db=db,
+        legacy_key=settings.BUS_TRACKING_API_KEY,
+    )
+    if matched:
+        return
+
+    if settings.DEBUG and not settings.BUS_TRACKING_API_KEY:
+        return
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or missing API key",
+    )
 
 
 # ── Optional Auth (for guest access) ─────────────────────────────────────────

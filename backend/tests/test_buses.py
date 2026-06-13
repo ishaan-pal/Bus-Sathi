@@ -13,6 +13,14 @@ def test_list_stops(client):
     assert "Chandigarh ISBT" in data["stops"]
 
 
+def test_search_stops(client):
+    resp = client.get("/api/v1/buses/stops/search", params={"q": "amb"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] >= 1
+    assert any("Ambala" in stop for stop in data["stops"])
+
+
 def test_search_buses(client):
     resp = client.post(
         "/api/v1/buses/search",
